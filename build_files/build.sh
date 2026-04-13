@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euxo pipefail
 
-dnf5 install -y R R-core R-core-devel julia python3 python3-pip
+dnf5 install -y R R-core R-core-devel python3 python3-pip
 
 dnf5 install -y --skip-unavailable \
     gdal gdal-devel proj proj-devel geos geos-devel \
@@ -12,6 +12,7 @@ dnf5 install -y --skip-unavailable \
 
 dnf5 clean all
 
+rm -rf ~/.juliaup ~/.julia
 curl -fsSL https://install.julialang.org | sh -s -- -y
 export PATH="$HOME/.juliaup/bin:$PATH"
 juliaup add julia-1.12
