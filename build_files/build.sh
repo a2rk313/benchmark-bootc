@@ -14,7 +14,7 @@ set -euxo pipefail
 # R (4.5.x from Fedora repos)
 dnf5 install -y R R-core R-core-devel
 
-# Julia (1.11.x from Fedora repos)
+# Julia base (will install specific version via juliaup)
 dnf5 install -y julia
 
 # Python (3.14 in Fedora 43)
@@ -42,11 +42,16 @@ dnf5 install -y --skip-unavailable \
 # Cleanup
 dnf5 clean all
 
-### Julia packages FIRST (catch errors early)
-export HOME=/var/local
-export JULIA_DEPOT_PATH=/var/local/julia-depot
-mkdir -p /var/local/julia-depot
-julia -e 'using Pkg; Pkg.add([
+# =============================================================================
+# Julia 1.12.6 via juliaup (FIRST - catch errors early)
+# =============================================================================
+curl -fsSL https://install.julialang.org | sh -s -- -j 1.12
+
+# Set up PATH for juliaup
+export PATH="$HOME/.juliaup/bin:$PATH"
+
+# Install Julia packages with juliaup's Julia
+juliaup run 1.12 -e 'using Pkg; Pkg.add([
     "BenchmarkTools",
     "CSV",
     "DataFrames",
@@ -60,7 +65,17 @@ julia -e 'using Pkg; Pkg.add([
     "GeoDataFrames"
 ])'
 
-### R packages - install in stages
+# =============================================================================
+# Python packages via uv
+# =============================================================================
+uv pip install --system \
+    numpy scipy pandas matplotlib seaborn scikit-learn \
+    shapely pyproj fiona rasterio geopandas rioxarray xarray \
+    psutil tqdm h5py json3
+
+# =============================================================================
+# R packages from CRAN
+# =============================================================================
 
 # First install base packages
 R --no-save -e 'install.packages(c(
@@ -81,14 +96,9 @@ R --no-save -e 'install.packages(c(
 # R.matlab if available
 R --no-save -e 'install.packages("R.matlab", repos="https://cloud.r-project.org")' || true
 
-### Python packages via pip
-
-python3 -m pip install --break-system-packages \
-    numpy scipy pandas matplotlib seaborn scikit-learn \
-    shapely pyproj fiona rasterio geopandas rioxarray xarray \
-    psutil tqdm h5py json3
-
-### Copy benchmark files to image
+# =============================================================================
+# Copy benchmark files to image
+# =============================================================================
 
 # Copy benchmarks
 COPY benchmarks/ /benchmarks/
