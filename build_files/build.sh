@@ -63,10 +63,10 @@ R --no-save -e 'install.packages(c(
 # R.matlab if available
 R --no-save -e 'install.packages("R.matlab", repos="https://cloud.r-project.org")' || true
 
-### Julia packages - set HOME and JULIA_DEPOT_PATH to writable locations
-export HOME=/var/local
-export JULIA_DEPOT_PATH=/var/local/julia
-mkdir -p /var/local
+### Julia packages - use /opt/julia-depot and set HOME
+export HOME=/opt/julia-depot
+export JULIA_DEPOT_PATH=/opt/julia-depot
+mkdir -p /opt/julia-depot
 julia -e 'using Pkg; Pkg.add([
     "BenchmarkTools",
     "CSV",
