@@ -12,7 +12,8 @@ dnf5 install -y --skip-unavailable \
 
 dnf5 clean all
 
-rm -rf ~/.juliaup ~/.julia
+rm -rf ~/.juliaup ~/.julia ~/.local/bin/julia ~/.local/bin/julialauncher
+unset JULIA_DEPOT_PATH JULIAUP_DEPOT_PATH
 curl -fsSL https://install.julialang.org | sh -s -- -y
 export PATH="$HOME/.juliaup/bin:$PATH"
 juliaup add julia-1.12
