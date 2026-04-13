@@ -63,20 +63,20 @@ R --no-save -e 'install.packages(c(
 # R.matlab if available
 R --no-save -e 'install.packages("R.matlab", repos="https://cloud.r-project.org")' || true
 
-### Julia packages - install on first boot (container build has issues with Julia Pkg)
-### After first boot, run: /usr/local/bin/install-julia-packages.sh
-
-cat > /usr/local/bin/install-julia-packages.sh << 'JULIA_SCRIPT'
-#!/bin/bash
-echo "Installing Julia packages (this may take a while)..."
+### Julia packages - install directly without precompilation
 julia -e 'using Pkg; Pkg.add([
-    "BenchmarkTools", "CSV", "DataFrames", "SHA", "MAT",
-    "JSON3", "NearestNeighbors", "LibGEOS", "Shapefile",
-    "ArchGDAL", "GeoDataFrames"
+    "BenchmarkTools",
+    "CSV",
+    "DataFrames",
+    "SHA",
+    "MAT",
+    "JSON3",
+    "NearestNeighbors",
+    "LibGEOS",
+    "Shapefile",
+    "ArchGDAL",
+    "GeoDataFrames"
 ])'
-echo "Julia packages installed successfully."
-JULIA_SCRIPT
-chmod +x /usr/local/bin/install-julia-packages.sh
 
 ### Python packages via pip
 
