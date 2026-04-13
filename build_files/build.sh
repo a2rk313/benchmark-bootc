@@ -42,7 +42,25 @@ dnf5 install -y --skip-unavailable \
 # Cleanup
 dnf5 clean all
 
-### R packages - install in stages for better error handling
+### Julia packages FIRST (catch errors early)
+export HOME=/var/local
+export JULIA_DEPOT_PATH=/var/local/julia-depot
+mkdir -p /var/local/julia-depot
+julia -e 'using Pkg; Pkg.add([
+    "BenchmarkTools",
+    "CSV",
+    "DataFrames",
+    "SHA",
+    "MAT",
+    "JSON3",
+    "NearestNeighbors",
+    "LibGEOS",
+    "Shapefile",
+    "ArchGDAL",
+    "GeoDataFrames"
+])'
+
+### R packages - install in stages
 
 # First install base packages
 R --no-save -e 'install.packages(c(
@@ -62,24 +80,6 @@ R --no-save -e 'install.packages(c(
 
 # R.matlab if available
 R --no-save -e 'install.packages("R.matlab", repos="https://cloud.r-project.org")' || true
-
-### Julia packages - use /var/local/julia-depot
-export HOME=/var/local
-export JULIA_DEPOT_PATH=/var/local/julia-depot
-mkdir -p /var/local/julia-depot
-julia -e 'using Pkg; Pkg.add([
-    "BenchmarkTools",
-    "CSV",
-    "DataFrames",
-    "SHA",
-    "MAT",
-    "JSON3",
-    "NearestNeighbors",
-    "LibGEOS",
-    "Shapefile",
-    "ArchGDAL",
-    "GeoDataFrames"
-])'
 
 ### Python packages via pip
 
