@@ -63,12 +63,21 @@ R --no-save -e 'install.packages(c(
 # R.matlab if available
 R --no-save -e 'install.packages("R.matlab", repos="https://cloud.r-project.org")' || true
 
-### Julia packages - set JULIA_DEPOT_PATH to avoid /root issues
+### Julia packages - use juliaup for better package management
 
+# Download and install juliaup (Julia version manager)
+curl -fsSL https://install.julialang.org | sh -s -- -j 1.11
+
+# Set up Julia environment
+export PATH="$HOME/.juliaup/bin:$PATH"
 export JULIA_DEPOT_PATH=/var/local/julia
-mkdir -p /var/local/julia
+mkdir -p $JULIA_DEPOT_PATH
 
-julia -e 'using Pkg; Pkg.add([
+# Precompile Pkg
+julia --project=/var/local/julia -e 'using Pkg; Pkg.precompile()'
+
+# Install packages
+julia --project=/var/local/julia -e 'using Pkg; Pkg.add([
     "BenchmarkTools",
     "CSV",
     "DataFrames",
