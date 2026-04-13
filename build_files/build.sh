@@ -63,33 +63,20 @@ R --no-save -e 'install.packages(c(
 # R.matlab if available
 R --no-save -e 'install.packages("R.matlab", repos="https://cloud.r-project.org")' || true
 
-### Julia packages - use juliaup for better package management
+### Julia packages - install on first boot (container build has issues with Julia Pkg)
+### After first boot, run: /usr/local/bin/install-julia-packages.sh
 
-# Download and install juliaup (Julia version manager)
-curl -fsSL https://install.julialang.org | sh -s -- -j 1.11
-
-# Set up Julia environment
-export PATH="$HOME/.juliaup/bin:$PATH"
-export JULIA_DEPOT_PATH=/var/local/julia
-mkdir -p $JULIA_DEPOT_PATH
-
-# Precompile Pkg
-julia --project=/var/local/julia -e 'using Pkg; Pkg.precompile()'
-
-# Install packages
-julia --project=/var/local/julia -e 'using Pkg; Pkg.add([
-    "BenchmarkTools",
-    "CSV",
-    "DataFrames",
-    "SHA",
-    "MAT",
-    "JSON3",
-    "NearestNeighbors",
-    "LibGEOS",
-    "Shapefile",
-    "ArchGDAL",
-    "GeoDataFrames"
+cat > /usr/local/bin/install-julia-packages.sh << 'JULIA_SCRIPT'
+#!/bin/bash
+echo "Installing Julia packages (this may take a while)..."
+julia -e 'using Pkg; Pkg.add([
+    "BenchmarkTools", "CSV", "DataFrames", "SHA", "MAT",
+    "JSON3", "NearestNeighbors", "LibGEOS", "Shapefile",
+    "ArchGDAL", "GeoDataFrames"
 ])'
+echo "Julia packages installed successfully."
+JULIA_SCRIPT
+chmod +x /usr/local/bin/install-julia-packages.sh
 
 ### Python packages via pip
 
