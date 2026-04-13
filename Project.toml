@@ -1,0 +1,12 @@
+[deps]
+ArchGDAL = "c9ce4bd3-c3d5-55b8-8973-c0e20141b8c3"
+BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
+CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
+DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
+GeoDataFrames = "62cb38b5-d8d2-4862-a48e-6a340996859f"
+JSON3 = "0f8b85d8-7281-11e9-16c2-39a750bddbf1"
+LibGEOS = "a90b1aa1-3769-5649-ba7e-abc5a9d163eb"
+MAT = "23992714-dd62-5051-b70f-ba57cb901cac"
+NearestNeighbors = "b8a86587-4115-5ab1-83bc-aa920d37bbce"
+Rasters = "a3a2b9e3-a471-40c9-b274-f788e487c689"
+SHA = "ea8e919c-243c-51af-8825-aaa63cd721ce"

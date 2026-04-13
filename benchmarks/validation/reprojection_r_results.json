@@ -1,0 +1,53 @@
+{
+  "language": "r",
+  "scenario": "coordinate_reprojection",
+  "results": {
+    "mercator_1000": {
+      "n_points": 1000,
+      "min_time_s": 0.001,
+      "mean_time_s": 0.0014,
+      "std_time_s": 0.0005,
+      "points_per_second": 1000000,
+      "hash": "7982a28127ec5193"
+    },
+    "utm_1000": {
+      "n_points": 1000,
+      "min_time_s": 0.177,
+      "mean_time_s": 0.189,
+      "std_time_s": 0.0174,
+      "points_per_second": 5649.7175
+    },
+    "mercator_5000": {
+      "n_points": 5000,
+      "min_time_s": 0.006,
+      "mean_time_s": 0.007,
+      "std_time_s": 0.0007,
+      "points_per_second": 833333.3333,
+      "hash": "8d9e15fe9de23516"
+    },
+    "utm_5000": {
+      "n_points": 5000,
+      "min_time_s": 3.116,
+      "mean_time_s": 3.2687,
+      "std_time_s": 0.1799,
+      "points_per_second": 1604.6213
+    },
+    "mercator_10000": {
+      "n_points": 10000,
+      "min_time_s": 0.011,
+      "mean_time_s": 0.0132,
+      "std_time_s": 0.0015,
+      "points_per_second": 909090.9091,
+      "hash": "2eccaf0d1fe158c5"
+    },
+    "utm_10000": {
+      "n_points": 10000,
+      "min_time_s": 12.177,
+      "mean_time_s": 12.2237,
+      "std_time_s": 0.0451,
+      "points_per_second": 821.2203
+    }
+  },
+  "all_hashes": ["7982a28127ec5193", "8d9e15fe9de23516", "2eccaf0d1fe158c5"],
+  "combined_hash": "d1afd88419585d4b"
+}

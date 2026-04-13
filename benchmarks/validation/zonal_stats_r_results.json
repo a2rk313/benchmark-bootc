@@ -1,0 +1,15 @@
+{
+  "language": "r",
+  "scenario": "zonal_statistics",
+  "results": {
+    "zonal_mean": {
+      "min_time_s": 0.005,
+      "mean_time_s": 0.0065,
+      "std_time_s": 0.0015,
+      "n_zones": 10,
+      "hash": "4f53cda18c2baa0c"
+    }
+  },
+  "all_hashes": "4f53cda18c2baa0c",
+  "combined_hash": "7d6185980d3fd0d4"
+}

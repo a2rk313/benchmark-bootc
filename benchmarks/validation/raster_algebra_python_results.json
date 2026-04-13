@@ -1,0 +1,56 @@
+{
+  "language": "python",
+  "scenario": "raster_algebra",
+  "data_shape": [
+    4,
+    614,
+    512
+  ],
+  "results": {
+    "ndvi": {
+      "min_time_s": 0.0029039500004728325,
+      "mean_time_s": 0.0043308259000696125,
+      "std_time_s": 0.002595242034959243,
+      "peak_memory_mb": 0.0,
+      "normality_p": 0.001,
+      "is_normal": false,
+      "ci_95": [
+        0.0029039500004728325,
+        0.003095217000009143
+      ],
+      "hash": "acb235dc203c80c8"
+    },
+    "band_arithmetic": {
+      "min_time_s": 0.014935584000340896,
+      "mean_time_s": 0.020376504800333352,
+      "std_time_s": 0.006446820137408005,
+      "peak_memory_mb": 0.0,
+      "normality_p": 0.001,
+      "is_normal": false,
+      "ci_95": [
+        0.014935584000340896,
+        0.01622125194994623
+      ],
+      "hash": "c8103b0ed3b0287a"
+    },
+    "convolution_3x3": {
+      "min_time_s": 0.01404307200027688,
+      "mean_time_s": 0.014624739099963336,
+      "std_time_s": 0.0005715884312755441,
+      "peak_memory_mb": 0.0,
+      "normality_p": 0.001,
+      "is_normal": false,
+      "ci_95": [
+        0.01404307200027688,
+        0.01429814599941892
+      ],
+      "hash": "92905a0ccf0a8505"
+    }
+  },
+  "all_hashes": [
+    "acb235dc203c80c8",
+    "c8103b0ed3b0287a",
+    "92905a0ccf0a8505"
+  ],
+  "combined_hash": "2257c9da8f48df7b"
+}
