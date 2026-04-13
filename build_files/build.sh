@@ -21,27 +21,23 @@ dnf5 install -y julia
 dnf5 install -y python3 python3-pip
 
 # System GIS libraries for R sf/stars/terra packages
-dnf5 install -y \
+dnf5 install -y --skip-unavailable \
     gdal gdal-devel \
     proj proj-devel \
     geos geos-devel \
     hdf5 hdf5-devel \
     fftw fftw-devel \
-    openblas openblas-devel \
+    openblas-openmp openblas-openmp-devel \
     lapack blas \
     libpq-devel \
-    libsqlite-devel \
+    sqlite-devel \
     netcdf-devel \
     udunits2-devel \
     gsl-devel \
     libtiff-devel \
     libpng-devel \
     libjpeg-turbo-devel \
-    zlib-devel \
-    bzip2-devel \
-    xz-devel \
-    gcc gcc-c++ make cmake \
-    git curl wget htop bc
+    git cmake
 
 # Cleanup
 dnf5 clean all
