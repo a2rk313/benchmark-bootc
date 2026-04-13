@@ -1,7 +1,10 @@
 #!/bin/bash
 set -euxo pipefail
 
-dnf5 install -y R R-core R-core-devel python3 python3-pip
+dnf5 install -y \
+    R R-core R-core-devel \
+    python3 python3-pip \
+    curl tar gzip
 
 dnf5 install -y --skip-unavailable \
     gdal gdal-devel proj proj-devel geos geos-devel \
@@ -12,39 +15,40 @@ dnf5 install -y --skip-unavailable \
 
 dnf5 clean all
 
-rm -rf ~/.juliaup ~/.julia ~/.local/bin/julia ~/.local/bin/julialauncher
-unset JULIA_DEPOT_PATH JULIAUP_DEPOT_PATH
-curl -fsSL https://install.julialang.org | sh -s -- -y
-export PATH="$HOME/.juliaup/bin:$PATH"
-juliaup add julia-1.12
-juliaup default julia-1.12
+JULIA_VERSION="1.12.0"
+JULIA_DIR="/opt/julia"
+JULIA_DEPOT="/opt/julia-depot"
 
-julia -e 'using Pkg; Pkg.add([
-    "BenchmarkTools","CSV","DataFrames","SHA","MAT","JSON3",
-    "NearestNeighbors","LibGEOS","Shapefile","ArchGDAL","GeoDataFrames"
-])'
+curl -fsSL \
+  "https://julialang-s3.julialang.org/bin/linux/x64/1.12/julia-${JULIA_VERSION}-linux-x86_64.tar.gz" \
+  -o /tmp/julia.tar.gz
+
+mkdir -p "${JULIA_DIR}"
+tar -xzf /tmp/julia.tar.gz -C "${JULIA_DIR}" --strip-components=1
+rm -f /tmp/julia.tar.gz
+
+ln -sf "${JULIA_DIR}/bin/julia" /usr/local/bin/julia
+
+export JULIA_DEPOT_PATH="${JULIA_DEPOT}"
+mkdir -p "${JULIA_DEPOT}"
+
+julia --project=/benchmarks -e '
+using Pkg
+Pkg.instantiate()
+Pkg.precompile()
+'
 
 uv pip install --system \
-    numpy scipy pandas matplotlib seaborn scikit-learn \
+    numpy scipy pandas matplotlib scikit-learn \
     shapely pyproj fiona rasterio geopandas rioxarray xarray \
-    psutil tqdm h5py json3
+    psutil tqdm h5py
 
 R --no-save -e 'install.packages(c(
-    "data.table","jsonlite","FNN","digest"
-), repos="https://cloud.r-project.org")'
-
-R --no-save -e 'install.packages(c(
+    "data.table","jsonlite","FNN","digest",
     "terra","sf","stars","raster"
 ), repos="https://cloud.r-project.org")'
 
-R --no-save -e 'install.packages("R.matlab", repos="https://cloud.r-project.org")' || true
-
-COPY benchmarks/ /benchmarks/
-COPY tools/ /tools/
-COPY validation/ /validation/
-COPY run_benchmarks.sh native_benchmark.sh run-container.sh /usr/local/bin/
-COPY Project.toml Manifest.toml /benchmarks/
-
-chmod +x /usr/local/bin/run_benchmarks.sh
-chmod +x /usr/local/bin/native_benchmark.sh
-chmod +x /usr/local/bin/run-container.sh
+R --no-save -e 'install.packages(
+    "R.matlab",
+    repos="https://cloud.r-project.org"
+)' || true
