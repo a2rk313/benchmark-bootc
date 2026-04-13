@@ -45,7 +45,7 @@ dnf5 clean all
 # =============================================================================
 # Julia 1.12.6 via juliaup (FIRST - catch errors early)
 # =============================================================================
-curl -fsSL https://install.julialang.org | sh -s -- -j 1.12
+curl -fsSL https://install.julialang.org | sh -s -- -y -j 1.12
 
 # Set up PATH for juliaup
 export PATH="$HOME/.juliaup/bin:$PATH"
