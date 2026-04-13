@@ -63,7 +63,10 @@ R --no-save -e 'install.packages(c(
 # R.matlab if available
 R --no-save -e 'install.packages("R.matlab", repos="https://cloud.r-project.org")' || true
 
-### Julia packages - install then precompile
+### Julia packages - set HOME and JULIA_DEPOT_PATH to writable locations
+export HOME=/var/local
+export JULIA_DEPOT_PATH=/var/local/julia
+mkdir -p /var/local
 julia -e 'using Pkg; Pkg.add([
     "BenchmarkTools",
     "CSV",
@@ -77,7 +80,6 @@ julia -e 'using Pkg; Pkg.add([
     "ArchGDAL",
     "GeoDataFrames"
 ])'
-julia -e 'using Pkg; Pkg.precompile()'
 
 ### Python packages via pip
 
