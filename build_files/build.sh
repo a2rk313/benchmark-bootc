@@ -20,7 +20,7 @@ dnf5 install -y julia
 # Python (3.14 in Fedora 43)
 dnf5 install -y python3 python3-pip
 
-# System GIS libraries
+# System GIS libraries for R sf/stars/terra packages
 dnf5 install -y \
     gdal gdal-devel \
     proj proj-devel \
@@ -29,27 +29,48 @@ dnf5 install -y \
     fftw fftw-devel \
     openblas openblas-devel \
     lapack blas \
+    libpq-devel \
+    libsqlite-devel \
+    netcdf-devel \
+    udunits2-devel \
+    gsl-devel \
+    libtiff-devel \
+    libpng-devel \
+    libjpeg-turbo-devel \
+    zlib-devel \
+    bzip2-devel \
+    xz-devel \
     gcc gcc-c++ make cmake \
     git curl wget htop bc
 
 # Cleanup
 dnf5 clean all
 
-### Install R packages
+### R packages - install in stages for better error handling
 
+# First install base packages
+R --no-save -e 'install.packages(c(
+    "data.table",
+    "jsonlite",
+    "FNN",
+    "digest"
+), repos="https://cloud.r-project.org")'
+
+# Then install spatial packages
 R --no-save -e 'install.packages(c(
     "terra",
     "sf",
     "stars",
-    "raster",
-    "data.table",
-    "jsonlite",
-    "FNN",
-    "digest",
-    "R.matlab"
+    "raster"
 ), repos="https://cloud.r-project.org")'
 
-### Install Julia packages
+# R.matlab if available
+R --no-save -e 'install.packages("R.matlab", repos="https://cloud.r-project.org")' || true
+
+### Julia packages - set JULIA_DEPOT_PATH to avoid /root issues
+
+export JULIA_DEPOT_PATH=/var/local/julia
+mkdir -p /var/local/julia
 
 julia -e 'using Pkg; Pkg.add([
     "BenchmarkTools",
@@ -65,7 +86,7 @@ julia -e 'using Pkg; Pkg.add([
     "GeoDataFrames"
 ])'
 
-### Install Python packages via pip
+### Python packages via pip
 
 python3 -m pip install --break-system-packages \
     numpy scipy pandas matplotlib seaborn scikit-learn \
