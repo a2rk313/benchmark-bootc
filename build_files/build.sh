@@ -45,13 +45,17 @@ dnf5 clean all
 # =============================================================================
 # Julia 1.12.6 via juliaup (FIRST - catch errors early)
 # =============================================================================
-curl -fsSL https://install.julialang.org | sh -s -- -y -j 1.12
+curl -fsSL https://install.julialang.org | sh -s -- -y
 
 # Set up PATH for juliaup
 export PATH="$HOME/.juliaup/bin:$PATH"
 
-# Install Julia packages with juliaup's Julia
-juliaup run 1.12 -e 'using Pkg; Pkg.add([
+# Add Julia 1.12 and set as default
+juliaup add julia-1.12
+juliaup default julia-1.12
+
+# Install Julia packages
+julia -e 'using Pkg; Pkg.add([
     "BenchmarkTools",
     "CSV",
     "DataFrames",
