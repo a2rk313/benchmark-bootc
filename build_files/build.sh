@@ -1,6 +1,10 @@
 #!/bin/bash
 set -eou pipefail
 
+# Fix for Silverblue ostree: create writable home
+mkdir -p /var/roothome
+export HOME=/var/roothome
+
 echo "=== 1. Installing System Dependencies via dnf5 ==="
 dnf5 install -y --skip-unavailable \
     python3 python3-pip \
@@ -14,8 +18,13 @@ dnf5 install -y --skip-unavailable \
 dnf5 clean all
 
 echo "=== 2. Installing 'uv' Package Manager ==="
-curl -LsSf https://astral.sh/uv/install.sh | sh
-export PATH="$HOME/.cargo/bin:$PATH"
+ARCH=$(uname -m)
+if [ "$ARCH" = "x86_64" ]; then
+    UV_ARCH="x86_64-unknown-linux-gnu"
+elif [ "$ARCH" = "aarch64" ]; then
+    UV_ARCH="aarch64-unknown-linux-gnu"
+fi
+curl -LsSf "https://github.com/astral-sh/uv/releases/latest/download/uv-${UV_ARCH}.tar.gz" | tar -xz -C /usr/bin --strip-components=1
 
 echo "=== 3. Installing Python Dependencies ==="
 uv pip install --system \
