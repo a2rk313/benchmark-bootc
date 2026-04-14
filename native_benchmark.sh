@@ -53,7 +53,7 @@ download_data() {
     
     echo "    → Data not found, downloading..."
     if [ -f "$BENCHMARK_DIR/tools/download_data.py" ]; then
-        python3 "$BENCHMARK_DIR/tools/download_data.py" --all --synthetic 2>/dev/null || true
+        python3 "$BENCHMARK_DIR/tools/download_data.py" --all --synthetic || true
     fi
     echo "    ✓ Data ready"
 }
