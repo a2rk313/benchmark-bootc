@@ -1,14 +1,9 @@
 #!/bin/bash
-# Fail on any error, undefined variable, or pipeline failure
 set -eou pipefail
 
 # ==============================================================================
-# THE OSTREE MAGIC FIX:
-# In Silverblue, /root is a symlink to /var/roothome. During a container build,
-# /var is empty, making /root a broken symlink. This causes ANY tool that writes
-# to ~/.cache, ~/.config, or ~/.local to instantly crash.
-# Creating this directory makes the symlink valid, acting as a temporary
-# scratchpad that OSTree will automatically discard in the final image.
+# THE OSTREE MAGIC FIX
+# Fixes broken /root symlink allowing tools to write temporary cache/configs.
 # ==============================================================================
 mkdir -p /var/roothome
 
@@ -24,8 +19,6 @@ dnf5 install -y --skip-unavailable \
 dnf5 clean all
 
 echo "=== 2. Installing 'uv' Package Manager ==="
-# We bypass the installer script entirely and grab the static binaries.
-# This is much safer for immutable container builds.
 ARCH=$(uname -m)
 if [ "$ARCH" = "x86_64" ]; then
     UV_ARCH="x86_64-unknown-linux-gnu"
@@ -40,10 +33,7 @@ echo "Downloading uv for $UV_ARCH..."
 curl -LsSf "https://github.com/astral-sh/uv/releases/latest/download/uv-${UV_ARCH}.tar.gz" | tar -xz -C /usr/bin --strip-components=1 "uv-${UV_ARCH}/uv" "uv-${UV_ARCH}/uvx"
 
 echo "=== 3. Installing Python Dependencies ==="
-# Force uv to use /tmp for caching to avoid any lingering permission issues
 export UV_CACHE_DIR="/tmp/uv-cache"
-
-# Use --prefix=/usr to force Python packages into the immutable OS tree
 uv pip install --system --prefix=/usr \
     numpy scipy pandas matplotlib scikit-learn \
     shapely pyproj fiona rasterio geopandas rioxarray xarray \
@@ -65,7 +55,6 @@ JULIA_MINOR=$(echo "$JULIA_VERSION" | cut -d. -f1,2)
 echo "Downloading Julia ${JULIA_VERSION} for ${ARCH}..."
 curl -fsSL "https://julialang-s3.julialang.org/bin/linux/${JULIA_ARCH}/${JULIA_MINOR}/julia-${JULIA_VERSION}-linux-${JULIA_TAR_ARCH}.tar.gz" -o /tmp/julia.tar.gz
 
-# Extract directly into the immutable /usr/lib and symlink to /usr/bin
 mkdir -p /usr/lib/julia
 tar -xzf /tmp/julia.tar.gz -C /usr/lib/julia --strip-components=1
 ln -s /usr/lib/julia/bin/julia /usr/bin/julia
@@ -74,11 +63,14 @@ rm /tmp/julia.tar.gz
 echo "=== 5. Installing R Dependencies ==="
 mkdir -p /usr/share/doc/R/html
 
-# Force R packages to install into /usr/lib64/R/library
+# GCC 15 / Fedora 43 Fix for R's 's2' package compilation
+echo "CXX14FLAGS += -include cstdint" >> /usr/lib64/R/etc/Makevars.site
+echo "CXX17FLAGS += -include cstdint" >> /usr/lib64/R/etc/Makevars.site
+echo "CXX20FLAGS += -include cstdint" >> /usr/lib64/R/etc/Makevars.site
+
 Rscript -e "install.packages(c('terra', 'sf', 'data.table'), lib='/usr/lib64/R/library', repos='https://cloud.r-project.org/', Ncpus=parallel::detectCores())"
 
 echo "=== 6. Pre-installing Julia packages ==="
-# Redirect Julia's package depot to a global, immutable system directory
 export JULIA_DEPOT_PATH="/usr/share/julia/depot"
 mkdir -p $JULIA_DEPOT_PATH
 
@@ -87,7 +79,6 @@ julia -e 'using Pkg; Pkg.add([
     "NearestNeighbors", "LibGEOS", "Shapefile", "ArchGDAL", "GeoDataFrames"
 ])'
 
-# Precompile to bake binaries into the image and save runtime during benchmarks
 julia -e 'using Pkg; Pkg.precompile()'
 
 echo "=== Build script finished successfully! ==="
