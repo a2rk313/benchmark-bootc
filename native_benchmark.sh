@@ -8,9 +8,46 @@ echo "==========================================================================
 echo "NATIVE BARE-METAL BENCHMARK RUNNER"
 echo "=========================================================================="
 
+# Set DATA_DIR
+DATA_DIR="/data"
+FALLBACK_DIR="$(pwd)/data"
+
+# 0. DOWNLOAD DATA IF NOT PRESENT
+download_data() {
+    echo ""
+    echo "[0/4] Checking benchmark data..."
+    
+    if [ -d "$DATA_DIR" ] && [ -n "$(ls -A "$DATA_DIR" 2>/dev/null)" ]; then
+        echo "    ✓ Data found in $DATA_DIR"
+        return 0
+    fi
+    
+    if [ -d "$FALLBACK_DIR" ] && [ -n "$(ls -A "$FALLBACK_DIR" 2>/dev/null)" ]; then
+        echo "    ✓ Data found in $FALLBACK_DIR"
+        return 0
+    fi
+    
+    echo "    → Data not found, downloading..."
+    
+    # Try tools/download_data.py first
+    if [ -f "/tools/download_data.py" ]; then
+        python3 /tools/download_data.py --all --synthetic 2>/dev/null && {
+            echo "    ✓ Data downloaded"
+            return 0
+        }
+    fi
+    
+    # Fallback: create minimal synthetic data
+    echo "    → Creating minimal synthetic data..."
+    mkdir -p "$FALLBACK_DIR"
+    
+    echo "    ✓ Using fallback mode"
+}
+
 # 1. PYTHON NATIVE SETUP
 setup_python_native() {
-    echo "[1/3] Setting up Python native environment..."
+    echo ""
+    echo "[1/4] Setting up Python native environment..."
     
     # Use system Python or create venv
     python3 -m venv /tmp/thesis-native-python
@@ -26,23 +63,25 @@ setup_python_native() {
     # Check BLAS (important for performance!)
     python3 -c "import numpy; numpy.show_config()" | grep -i blas
     
-    echo "✓ Python native ready"
+    echo "    ✓ Python native ready"
 }
 
 # 2. JULIA NATIVE SETUP
 setup_julia_native() {
-    echo "[2/3] Setting up Julia native environment..."
+    echo ""
+    echo "[2/4] Setting up Julia native environment..."
     
     # Julia packages install to ~/.julia by default (already native!)
     # Just ensure packages are precompiled
     julia -e 'using Pkg; Pkg.instantiate(); Pkg.precompile()'
     
-    echo "✓ Julia native ready (uses ~/.julia/)"
+    echo "    ✓ Julia native ready (uses ~/.julia/)"
 }
 
 # 3. R NATIVE SETUP  
 setup_r_native() {
-    echo "[3/3] Setting up R native environment..."
+    echo ""
+    echo "[3/4] Setting up R native environment..."
     
     # Check which BLAS R is using
     R --quiet -e "La_library()" | grep -i blas
@@ -50,7 +89,7 @@ setup_r_native() {
     # Ensure packages installed
     R --quiet -e 'install.packages(c("terra", "data.table"), repos="https://cloud.r-project.org")'
     
-    echo "✓ R native ready"
+    echo "    ✓ R native ready"
 }
 
 # OPTIMIZE SYSTEM FOR BENCHMARKING
@@ -68,9 +107,6 @@ optimize_system() {
     sync
     echo 3 | sudo tee /proc/sys/vm/drop_caches > /dev/null 2>&1 || true
     echo "✓ Filesystem caches dropped"
-    
-    # Stop unnecessary services (optional)
-    # sudo systemctl stop bluetooth cups 2>/dev/null || true
 }
 
 # RUN NATIVE BENCHMARKS
@@ -116,6 +152,7 @@ restore_system() {
 
 # MAIN EXECUTION
 main() {
+    download_data
     setup_python_native
     setup_julia_native
     setup_r_native

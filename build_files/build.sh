@@ -14,7 +14,8 @@ dnf5 install -y --skip-unavailable \
     gdal gdal-devel proj proj-devel geos geos-devel \
     hdf5 hdf5-devel fftw fftw-devel openblas openblas-devel lapack blas \
     libpq-devel sqlite-devel netcdf-devel udunits2-devel gsl-devel \
-    libtiff-devel libjpeg-turbo-devel git cmake wget curl tar gzip
+    libtiff-devel libjpeg-turbo-devel git cmake wget curl tar gzip \
+    hyperfine time
 
 dnf5 clean all
 
@@ -40,7 +41,7 @@ uv pip install --system --prefix=/usr \
     psutil tqdm h5py
 
 echo "=== 4. Installing Julia (Architecture Aware) ==="
-JULIA_VERSION="1.11.4"
+JULIA_VERSION="1.12.6"
 
 if [ "$ARCH" = "x86_64" ]; then
     JULIA_ARCH="x64"
