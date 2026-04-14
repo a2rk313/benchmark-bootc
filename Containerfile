@@ -1,19 +1,11 @@
 # Benchmark Bootc OS - Single stage build
 # Base: Fedora Silverblue with Julia, Python, R for GIS benchmarking
 
-# Setup context for build script
-FROM scratch AS ctx
-COPY build_files/ /ctx/
-
-# Base OS
 FROM ghcr.io/ublue-os/silverblue-main:latest
 
-# Run build script to install all packages
-RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
-    --mount=type=cache,dst=/var/cache/libdnf5 \
-    --mount=type=cache,dst=/var/cache/rpm-ostree \
-    --mount=type=tmpfs,dst=/tmp \
-    /ctx/build.sh
+# Copy and run build script
+COPY build_files/build.sh /tmp/build.sh
+RUN chmod +x /tmp/build.sh && /tmp/build.sh && rm /tmp/build.sh
 
 # Copy first-boot setup script
 COPY firstboot/ /opt/firstboot/
