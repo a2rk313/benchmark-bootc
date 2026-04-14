@@ -7,7 +7,7 @@ export HOME=/var/roothome
 
 echo "=== 1. Installing System Dependencies via dnf5 ==="
 dnf5 install -y --skip-unavailable \
-    python3 python3-pip \
+    python3 python3-pip python3-devel \
     R R-core R-core-devel \
     gdal gdal-devel proj proj-devel geos geos-devel \
     hdf5 hdf5-devel fftw fftw-devel openblas openblas-devel lapack blas \
