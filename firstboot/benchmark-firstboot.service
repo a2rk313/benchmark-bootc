@@ -1,0 +1,17 @@
+[Unit]
+Description=Benchmark Thesis First-Boot Setup
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/firstboot/first-boot-setup.sh
+RemainAfterExit=yes
+StandardOutput=journal
+StandardError=journal
+
+# Allow network time for git clone
+TimeoutStartSec=300
+
+[Install]
+WantedBy=multi-user.target

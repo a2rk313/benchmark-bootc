@@ -1,94 +1,97 @@
 #!/bin/bash
-# native_benchmark.sh - Simple native OS benchmark runner
-# Eliminates container overhead for true bare-metal performance
+# native_benchmark.sh - Native OS benchmark runner
+# Clones benchmark-thesis repo on first run if not present
 
 set -e
+
+BENCHMARK_DIR="/benchmarks"
+DATA_DIR="/data"
+REPO_URL="https://github.com/a2rk313/benchmark-thesis.git"
 
 echo "=========================================================================="
 echo "NATIVE BARE-METAL BENCHMARK RUNNER"
 echo "=========================================================================="
 
-# Set DATA_DIR
-DATA_DIR="/data"
-FALLBACK_DIR="$(pwd)/data"
+# 0. ENSURE BENCHMARKS ARE AVAILABLE
+ensure_benchmarks() {
+    echo ""
+    echo "[0/5] Checking benchmark repository..."
+    
+    if [ -d "$BENCHMARK_DIR/.git" ]; then
+        echo "    ✓ Benchmark repo found at $BENCHMARK_DIR"
+        cd "$BENCHMARK_DIR"
+        return 0
+    fi
+    
+    echo "    → Benchmark repo not found, cloning..."
+    git clone "$REPO_URL" "$BENCHMARK_DIR"
+    cd "$BENCHMARK_DIR"
+    
+    # Download data
+    if [ -f "tools/download_data.py" ]; then
+        echo "    → Downloading benchmark data..."
+        python3 tools/download_data.py --all --synthetic || true
+    fi
+    
+    echo "    ✓ Benchmark repo cloned and ready"
+}
 
-# 0. DOWNLOAD DATA IF NOT PRESENT
+# 1. DOWNLOAD DATA IF NOT PRESENT
 download_data() {
     echo ""
-    echo "[0/4] Checking benchmark data..."
+    echo "[1/5] Checking benchmark data..."
     
     if [ -d "$DATA_DIR" ] && [ -n "$(ls -A "$DATA_DIR" 2>/dev/null)" ]; then
         echo "    ✓ Data found in $DATA_DIR"
         return 0
     fi
     
-    if [ -d "$FALLBACK_DIR" ] && [ -n "$(ls -A "$FALLBACK_DIR" 2>/dev/null)" ]; then
-        echo "    ✓ Data found in $FALLBACK_DIR"
+    if [ -d "$BENCHMARK_DIR/data" ] && [ -n "$(ls -A "$BENCHMARK_DIR/data" 2>/dev/null)" ]; then
+        echo "    ✓ Data found in $BENCHMARK_DIR/data"
         return 0
     fi
     
     echo "    → Data not found, downloading..."
-    
-    # Try tools/download_data.py first
-    if [ -f "/tools/download_data.py" ]; then
-        python3 /tools/download_data.py --all --synthetic 2>/dev/null && {
-            echo "    ✓ Data downloaded"
-            return 0
-        }
+    if [ -f "$BENCHMARK_DIR/tools/download_data.py" ]; then
+        python3 "$BENCHMARK_DIR/tools/download_data.py" --all --synthetic 2>/dev/null || true
     fi
-    
-    # Fallback: create minimal synthetic data
-    echo "    → Creating minimal synthetic data..."
-    mkdir -p "$FALLBACK_DIR"
-    
-    echo "    ✓ Using fallback mode"
+    echo "    ✓ Data ready"
 }
 
-# 1. PYTHON NATIVE SETUP
+# 2. PYTHON NATIVE SETUP
 setup_python_native() {
     echo ""
-    echo "[1/4] Setting up Python native environment..."
+    echo "[2/5] Setting up Python native environment..."
     
-    # Use system Python or create venv
     python3 -m venv /tmp/thesis-native-python
     source /tmp/thesis-native-python/bin/activate
     
-    # Install exact versions
     pip install --quiet \
         numpy==1.26.3 \
         scipy==1.11.4 \
         pandas==2.1.4 \
         rasterio==1.3.9
     
-    # Check BLAS (important for performance!)
     python3 -c "import numpy; numpy.show_config()" | grep -i blas
-    
     echo "    ✓ Python native ready"
 }
 
-# 2. JULIA NATIVE SETUP
+# 3. JULIA NATIVE SETUP
 setup_julia_native() {
     echo ""
-    echo "[2/4] Setting up Julia native environment..."
+    echo "[3/5] Setting up Julia native environment..."
     
-    # Julia packages install to ~/.julia by default (already native!)
-    # Just ensure packages are precompiled
     julia -e 'using Pkg; Pkg.instantiate(); Pkg.precompile()'
-    
-    echo "    ✓ Julia native ready (uses ~/.julia/)"
+    echo "    ✓ Julia native ready"
 }
 
-# 3. R NATIVE SETUP  
+# 4. R NATIVE SETUP  
 setup_r_native() {
     echo ""
-    echo "[3/4] Setting up R native environment..."
+    echo "[4/5] Setting up R native environment..."
     
-    # Check which BLAS R is using
     R --quiet -e "La_library()" | grep -i blas
-    
-    # Ensure packages installed
     R --quiet -e 'install.packages(c("terra", "data.table"), repos="https://cloud.r-project.org")'
-    
     echo "    ✓ R native ready"
 }
 
@@ -97,13 +100,11 @@ optimize_system() {
     echo ""
     echo "Optimizing system for benchmarking..."
     
-    # Set CPU governor to performance (requires sudo)
     if command -v cpupower &> /dev/null; then
         sudo cpupower frequency-set --governor performance 2>/dev/null || true
         echo "✓ CPU governor set to performance"
     fi
     
-    # Drop filesystem caches
     sync
     echo 3 | sudo tee /proc/sys/vm/drop_caches > /dev/null 2>&1 || true
     echo "✓ Filesystem caches dropped"
@@ -152,6 +153,7 @@ restore_system() {
 
 # MAIN EXECUTION
 main() {
+    ensure_benchmarks
     download_data
     setup_python_native
     setup_julia_native
@@ -167,8 +169,7 @@ main() {
     echo ""
     echo "Results saved to: results/native/"
     echo ""
-    echo "Next step: Compare with container results"
-    echo "  python3 compare_native_vs_container.py"
+    echo "Full benchmark suite: cd $BENCHMARK_DIR && ./run_benchmarks.sh --native-only"
 }
 
 main "$@"

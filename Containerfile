@@ -39,14 +39,16 @@ COPY --from=builder /usr/local/bin/uvx /usr/local/bin/uvx 2>/dev/null || true
 # Copy R packages
 COPY --from=builder /usr/lib64/R /usr/lib64/R
 
-# Copy benchmark files (data downloaded at runtime)
-COPY benchmarks/ /benchmarks/
-COPY tools/ /tools/
-COPY validation/ /validation/
+# Copy first-boot setup script
+COPY firstboot/ /opt/firstboot/
+RUN chmod +x /opt/firstboot/first-boot-setup.sh
 
-# Copy scripts
-COPY native_benchmark.sh /usr/local/bin/
-RUN chmod +x /usr/local/bin/native_benchmark.sh
+# Install systemd service for first-boot setup
+COPY firstboot/benchmark-firstboot.service /etc/systemd/system/
+RUN systemctl enable benchmark-firstboot.service
+
+# Create benchmark directory
+RUN mkdir -p /benchmarks /data
 
 # Create symlinks for Julia depot
 ENV JULIA_DEPOT_PATH="/usr/share/julia/depot"
@@ -55,6 +57,9 @@ ENV JULIA_DEPOT_PATH="/usr/share/julia/depot"
 ENV JULIA_NUM_THREADS=8
 ENV OPENBLAS_NUM_THREADS=8
 ENV OMP_NUM_THREADS=8
+
+# Mark as needing first boot setup
+ENV BENCHMARK_FIRST_BOOT=1
 
 # Cleanup unnecessary files
 RUN rm -rf /var/cache/* /tmp/* /root/.cache 2>/dev/null || true
