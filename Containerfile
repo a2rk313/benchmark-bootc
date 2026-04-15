@@ -1,33 +1,96 @@
-# 1. Setup a dummy context layer to mount our build script
-FROM scratch AS ctx
-COPY build_files /
+# ==============================================================================
+# STAGE 1: THE HEAVY BUILDER
+# Uses standard Fedora 43. No read-only filesystem, no broken symlinks.
+# ==============================================================================
+FROM registry.fedoraproject.org/fedora:43 AS builder
 
-# 2. Base OS
-FROM ghcr.io/ublue-os/silverblue-main:latest
+# 1. Install Compilers and Development Headers (Heavyweights)
+RUN dnf5 install -y \
+    gcc gcc-c++ make cmake git curl wget tar \
+    python3 python3-pip python3-devel \
+    R-core R-core-devel \
+    gdal-devel proj-devel geos-devel \
+    hdf5-devel fftw-devel openblas-devel sqlite-devel \
+    libtiff-devel libjpeg-turbo-devel spatialindex-devel
 
-# 3. Execute the build script with cache mounts
-RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
-    --mount=type=cache,dst=/var/cache/libdnf5 \
-    --mount=type=cache,dst=/var/cache/rpm-ostree \
-    --mount=type=tmpfs,dst=/tmp \
-    /ctx/build.sh
+# 2. Install 'uv' and Python Dependencies
+# We install them into a dedicated folder (/opt/python-deps) so they are easy to copy later
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+ENV PATH="/root/.local/bin:$PATH"
+RUN uv pip install --system --target=/opt/python-deps \
+    numpy scipy pandas matplotlib seaborn scikit-learn \
+    shapely pyproj fiona rasterio geopandas rioxarray xarray \
+    psutil tqdm h5py
 
-# 4. Copy first-boot setup scripts
-COPY firstboot/ /opt/firstboot/
-RUN chmod +x /opt/firstboot/first-boot-setup.sh
+# 3. Install R Dependencies
+# We compile them into a dedicated folder (/opt/R-deps)
+RUN mkdir -p /opt/R-deps && \
+    echo "CXX14FLAGS += -include cstdint" >> /usr/lib64/R/etc/Makevars.site && \
+    echo "CXX17FLAGS += -include cstdint" >> /usr/lib64/R/etc/Makevars.site && \
+    echo "CXX20FLAGS += -include cstdint" >> /usr/lib64/R/etc/Makevars.site && \
+    Rscript -e "install.packages(c('terra', 'sf', 'data.table', 'R.matlab', 'FNN', 'jsonlite', 'digest'), lib='/opt/R-deps', repos='https://cloud.r-project.org/', Ncpus=parallel::detectCores())"
 
-# 5. Install systemd service for first-boot setup
-COPY firstboot/benchmark-firstboot.service /etc/systemd/system/
-RUN systemctl enable benchmark-firstboot.service
+# 4. Install Julia & Precompile Packages
+# Download and extract Julia to /opt/julia
+RUN curl -fsSL "https://julialang-s3.julialang.org/bin/linux/x64/1.12/julia-1.12.6-linux-x86_64.tar.gz" | tar -xz -C /opt && \
+    mv /opt/julia-* /opt/julia
 
-# 6. Copy native benchmark script
-COPY native_benchmark.sh /usr/local/bin/
-RUN chmod +x /usr/local/bin/native_benchmark.sh
+# Install Julia packages into a dedicated global depot (/opt/julia-depot)
+ENV JULIA_DEPOT_PATH="/opt/julia-depot"
+ENV PATH="/opt/julia/bin:$PATH"
+RUN julia -e 'using Pkg; Pkg.add(["BenchmarkTools", "CSV", "DataFrames", "SHA", "MAT", "JSON3", "NearestNeighbors", "LibGEOS", "Shapefile", "ArchGDAL", "GeoDataFrames"])' && \
+    julia -e 'using Pkg; Pkg.precompile()' && \
+    julia -e 'using Pkg, Dates; Pkg.gc(collect_delay=Day(0))' && \
+    rm -rf /opt/julia-depot/packages/*/ && \
+    rm -rf /opt/julia-depot/artifacts/*/
 
-# 7. Create directories
-RUN mkdir -p /benchmarks /data
 
-# Set environment
-ENV JULIA_NUM_THREADS=8
-ENV OPENBLAS_NUM_THREADS=8
-ENV OMP_NUM_THREADS=8
+# ==============================================================================
+# STAGE 2: THE FINAL BOOTC OS (SILVERBLUE)
+# Lean, immutable, and contains ONLY runtime requirements.
+# ==============================================================================
+FROM quay.io/fedora/fedora-silverblue:43
+
+# 1. Set Environment Variables
+ENV JULIA_NUM_THREADS=8 \
+    OPENBLAS_NUM_THREADS=8 \
+    OMP_NUM_THREADS=8 \
+    R_MAX_VSIZE=16G \
+    PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    GDAL_DISABLE_READDIR_ON_OPEN=EMPTY_DIR \
+    GDAL_CACHEMAX=512 \
+    NPY_BLAS_ORDER=openblas \
+    NPY_LAPACK_ORDER=openblas \
+    JULIA_DEPOT_PATH="/usr/share/julia/depot" \
+    PYTHONPATH="/usr/local/lib/python-deps"
+
+# 2. Install ONLY Runtime Dependencies (No -devel packages!)
+RUN dnf5 install -y --skip-unavailable --setopt=install_weak_deps=False \
+    python3 R-core gdal proj geos hdf5 fftw openblas \
+    sqlite netcdf udunits2 gsl libtiff libjpeg-turbo \
+    time hyperfine spatialindex git && \
+    dnf5 clean all && \
+    rm -rf /var/cache/libdnf5/*
+
+# 3. Transplant Compiled Artifacts from the Builder Stage!
+# Python packages
+COPY --from=builder /opt/python-deps /usr/local/lib/python-deps
+# R Packages (Merging them into the system R library)
+COPY --from=builder /opt/R-deps /usr/lib64/R/library
+# Julia Binaries
+COPY --from=builder /opt/julia /usr/lib/julia
+RUN ln -s /usr/lib/julia/bin/julia /usr/bin/julia
+# Julia Precompiled Packages
+COPY --from=builder /opt/julia-depot /usr/share/julia/depot
+
+# 4. Copy First-Boot Setup Scripts
+COPY ./firstboot/first-boot-setup.sh /usr/local/bin/first-boot-setup.sh
+COPY ./firstboot/benchmark-firstboot.service /etc/systemd/system/benchmark-firstboot.service
+
+RUN chmod +x /usr/local/bin/first-boot-setup.sh && \
+    systemctl enable benchmark-firstboot.service
+
+# 5. Create Mutable Runtime Directories
+RUN mkdir -p /var/data && ln -s /var/data /data && \
+    mkdir -p /var/benchmarks && ln -s /var/benchmarks /benchmarks
