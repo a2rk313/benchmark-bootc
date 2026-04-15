@@ -22,7 +22,6 @@ ENV JULIA_NUM_THREADS=8 \
 # =====================================================================
 
 # Main execution scripts
-COPY ./run_benchmarks.sh /usr/local/bin/run_benchmarks.sh
 COPY ./native_benchmark.sh /usr/local/bin/native_benchmark.sh
 RUN chmod +x /usr/local/bin/run_benchmarks.sh /usr/local/bin/native_benchmark.sh
 
