@@ -17,24 +17,33 @@ ENV JULIA_NUM_THREADS=8 \
     NPY_BLAS_ORDER=openblas \
     NPY_LAPACK_ORDER=openblas
 
-# 4. Copy OS-level Orchestration Scripts (Must exist in this repo)
-COPY run_benchmarks.sh native_benchmark.sh /usr/local/bin/
+# =====================================================================
+# 4. COPY SCRIPTS (1-by-1 to prevent Buildah path-parsing bugs)
+# =====================================================================
+
+# Main execution scripts
+COPY ./run_benchmarks.sh /usr/local/bin/run_benchmarks.sh
+COPY ./native_benchmark.sh /usr/local/bin/native_benchmark.sh
 RUN chmod +x /usr/local/bin/run_benchmarks.sh /usr/local/bin/native_benchmark.sh
 
-# Copy first-boot setup scripts 
-COPY firstboot/first-boot-setup.sh /usr/local/bin/
-RUN chmod +x /usr/local/bin/first-boot-setup.sh
+# First-boot setup scripts
+COPY ./firstboot/first-boot-setup.sh /usr/local/bin/first-boot-setup.sh
+COPY ./firstboot/benchmark-firstboot.service /etc/systemd/system/benchmark-firstboot.service
 
-COPY firstboot/benchmark-firstboot.service /etc/systemd/system/
-RUN systemctl enable benchmark-firstboot.service
+RUN chmod +x /usr/local/bin/first-boot-setup.sh && \
+    systemctl enable benchmark-firstboot.service
 
-# 5. Create MUTABLE directories for runtime cloning and data
+# =====================================================================
+# 5. Create Mutable Directories
+# =====================================================================
 # Because the root filesystem (/) is read-only in Silverblue, we must 
 # route these to the writable /var partition.
 RUN mkdir -p /var/data && ln -s /var/data /data && \
     mkdir -p /var/benchmarks && ln -s /var/benchmarks /benchmarks
 
+# =====================================================================
 # 6. Execute the massive dependency build script
+# =====================================================================
 RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
     --mount=type=cache,dst=/var/cache/libdnf5 \
     --mount=type=cache,dst=/var/cache/rpm-ostree \
