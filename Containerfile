@@ -17,32 +17,24 @@ ENV JULIA_NUM_THREADS=8 \
     NPY_BLAS_ORDER=openblas \
     NPY_LAPACK_ORDER=openblas
 
-# =====================================================================
-# 4. COPY EVERYTHING FIRST
-# (Doing this before the 15-minute build.sh prevents Buildah from 
-# dropping the GitHub Actions workspace context)
-# =====================================================================
-COPY ./benchmarks/ /benchmarks/
-COPY ./tools/ /tools/
-COPY ./validation/ /validation/
-
-# Copy main execution scripts
-COPY ./run_benchmarks.sh ./native_benchmark.sh /usr/local/bin/
+# 4. Copy OS-level Orchestration Scripts (Must exist in this repo)
+COPY run_benchmarks.sh native_benchmark.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/run_benchmarks.sh /usr/local/bin/native_benchmark.sh
 
-# Copy first-boot setup scripts (Ensure these exist in your Git repo!)
-COPY ./firstboot/first-boot-setup.sh /usr/local/bin/
+# Copy first-boot setup scripts 
+COPY firstboot/first-boot-setup.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/first-boot-setup.sh
 
-COPY ./firstboot/benchmark-firstboot.service /etc/systemd/system/
+COPY firstboot/benchmark-firstboot.service /etc/systemd/system/
 RUN systemctl enable benchmark-firstboot.service
 
-# 5. Create mutable data directories safely
-RUN mkdir -p /var/data && ln -s /var/data /data
+# 5. Create MUTABLE directories for runtime cloning and data
+# Because the root filesystem (/) is read-only in Silverblue, we must 
+# route these to the writable /var partition.
+RUN mkdir -p /var/data && ln -s /var/data /data && \
+    mkdir -p /var/benchmarks && ln -s /var/benchmarks /benchmarks
 
-# =====================================================================
-# 6. RUN THE MASSIVE BUILD SCRIPT LAST
-# =====================================================================
+# 6. Execute the massive dependency build script
 RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
     --mount=type=cache,dst=/var/cache/libdnf5 \
     --mount=type=cache,dst=/var/cache/rpm-ostree \
