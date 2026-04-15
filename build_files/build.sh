@@ -95,8 +95,7 @@ julia -e 'using Pkg; Pkg.precompile()'
 
 # Clean up Julia's downloaded archives (keeps binaries, drops zip files)
 rm -rf /usr/share/julia/depot/packages/*/
-rm -rf /usr/share/julia/depot/artifacts/*/
-julia -e 'using Pkg; Pkg.gc(collect_delay=Day(0))'
+julia -e 'using Pkg, Dates; Pkg.gc(collect_delay=Day(0))'
 
 echo "=== 7. Final Deep Clean ==="
 # Wipe out all temporary caches that might bloat the layer
