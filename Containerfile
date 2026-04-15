@@ -7,9 +7,17 @@ FROM quay.io/fedora/fedora-silverblue:43
 
 # 3. Set Environment Variables for Performance
 # (Placed early so they are available to the OS globally)
-ENV JULIA_NUM_THREADS=8
-ENV OPENBLAS_NUM_THREADS=8
-ENV OMP_NUM_THREADS=8
+# 3. Set Environment Variables for Performance & Tuning
+ENV JULIA_NUM_THREADS=8 \
+    OPENBLAS_NUM_THREADS=8 \
+    OMP_NUM_THREADS=8 \
+    R_MAX_VSIZE=16G \
+    PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    GDAL_DISABLE_READDIR_ON_OPEN=EMPTY_DIR \
+    GDAL_CACHEMAX=512 \
+    NPY_BLAS_ORDER=openblas \
+    NPY_LAPACK_ORDER=openblas
 
 # 4. Execute the optimized build script FIRST
 # Doing this before copying your local scripts means Docker/Podman will cache
