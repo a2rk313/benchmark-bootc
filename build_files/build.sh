@@ -9,7 +9,7 @@ set -eou pipefail
 mkdir -p /var/roothome
 
 echo "=== 1. Installing System Dependencies via dnf5 ==="
-# --setopt=install_weak_deps=False is MANDATORY here.
+# --setopt=install_weak_deps=False is MANDATORY.
 # It stops R and GDAL from installing ~4GB of LaTeX and Java onto your Silverblue desktop.
 dnf5 install -y --skip-unavailable --setopt=install_weak_deps=False \
     python3 python3-pip python3-devel \
@@ -17,7 +17,8 @@ dnf5 install -y --skip-unavailable --setopt=install_weak_deps=False \
     gdal gdal-devel proj proj-devel geos geos-devel \
     hdf5 hdf5-devel fftw fftw-devel openblas openblas-devel lapack blas \
     libpq-devel sqlite-devel netcdf-devel udunits2-devel gsl-devel \
-    libtiff-devel libjpeg-turbo-devel git cmake wget curl tar gzip hyperfine time
+    libtiff-devel libjpeg-turbo-devel git cmake wget curl tar gzip \
+    time hyperfine spatialindex spatialindex-devel
 
 # Aggressive DNF cleanup
 dnf5 clean all
@@ -35,13 +36,14 @@ else
 fi
 
 echo "Downloading uv for $UV_ARCH..."
+# Extract static binaries directly into the immutable /usr/bin directory
 curl -LsSf "https://github.com/astral-sh/uv/releases/latest/download/uv-${UV_ARCH}.tar.gz" | tar -xz -C /usr/bin --strip-components=1 "uv-${UV_ARCH}/uv" "uv-${UV_ARCH}/uvx"
 
 echo "=== 3. Installing Python Dependencies ==="
 export UV_CACHE_DIR="/tmp/uv-cache"
 # Use --no-cache to prevent storing downloaded wheels, saving space
 uv pip install --system --prefix=/usr --no-cache \
-    numpy scipy pandas matplotlib scikit-learn \
+    numpy scipy pandas matplotlib seaborn scikit-learn \
     shapely pyproj fiona rasterio geopandas rioxarray xarray \
     psutil tqdm h5py
 
@@ -75,8 +77,8 @@ echo "CXX14FLAGS += -include cstdint" >> /usr/lib64/R/etc/Makevars.site
 echo "CXX17FLAGS += -include cstdint" >> /usr/lib64/R/etc/Makevars.site
 echo "CXX20FLAGS += -include cstdint" >> /usr/lib64/R/etc/Makevars.site
 
-# Tell R to clean up downloaded source tarballs immediately after compiling
-Rscript -e "install.packages(c('terra', 'sf', 'data.table'), lib='/usr/lib64/R/library', repos='https://cloud.r-project.org/', Ncpus=parallel::detectCores(), clean=TRUE)"
+# Force R packages to install into /usr/lib64/R/library and clean downloaded tarballs immediately
+Rscript -e "install.packages(c('terra', 'sf', 'data.table', 'R.matlab', 'FNN', 'jsonlite', 'digest'), lib='/usr/lib64/R/library', repos='https://cloud.r-project.org/', Ncpus=parallel::detectCores(), clean=TRUE)"
 
 echo "=== 6. Pre-installing Julia packages ==="
 # Redirect Julia's package depot to a global, immutable system directory
