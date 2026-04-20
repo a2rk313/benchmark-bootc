@@ -2,16 +2,15 @@
 Description=Benchmark Thesis First-Boot Setup
 After=network-online.target
 Wants=network-online.target
+ConditionPathExists=!/var/lib/benchmark-firstboot-complete
 
 [Service]
 Type=oneshot
-ExecStart=/opt/firstboot/first-boot-setup.sh
-RemainAfterExit=yes
-StandardOutput=journal
-StandardError=journal
-
-# Allow network time for git clone
-TimeoutStartSec=300
+ExecStart=/usr/local/bin/first-boot-setup.sh
+TimeoutStartSec=600
+User=root
+StandardOutput=journal+console
+StandardError=journal+console
 
 [Install]
 WantedBy=multi-user.target
