@@ -6,7 +6,7 @@ FROM registry.fedoraproject.org/fedora:43 AS builder
 # Install compilers and development headers
 RUN dnf5 install -y \
     gcc gcc-c++ make cmake git curl wget tar \
-    python3.13 python3.13-pip python3.13-devel \
+    python3 python3-pip python3-devel \
     R-core R-core-devel \
     gdal-devel proj-devel geos-devel \
     hdf5-devel fftw-devel openblas-devel sqlite-devel \
@@ -17,7 +17,7 @@ RUN curl -LsSf https://astral.sh/uv/install.sh | sh
 ENV PATH="/root/.local/bin:$PATH"
 
 # Use uv to install Python packages targeting Python 3.13
-RUN uv pip install --system --python 3.13 --target=/opt/python-deps \
+RUN uv pip install --system --python 3.14 --target=/opt/python-deps \
     "numpy>=2.2" "scipy>=1.15" "pandas>=2.2" "matplotlib>=3.9" \
     "seaborn>=0.13" "scikit-learn>=1.6" "shapely>=2.0" "pyproj>=3.6" \
     "fiona>=1.10" "rasterio>=1.4" "geopandas>=1.0" "rioxarray>=0.18" \
@@ -53,7 +53,7 @@ ENV JULIA_NUM_THREADS=8 \
     PATH="/usr/lib/julia/bin:$PATH"
 
 RUN dnf5 install -y --skip-unavailable --setopt=install_weak_deps=False \
-    python3.13 R-core gdal proj geos hdf5 fftw openblas \
+    python3 R-core gdal proj geos hdf5 fftw openblas \
     time hyperfine git && \
     dnf5 clean all
 
@@ -62,8 +62,8 @@ COPY --from=builder /opt/R-deps /usr/lib64/R/library
 COPY --from=builder /opt/julia /usr/lib/julia
 COPY --from=builder /opt/julia-depot /usr/share/julia/depot
 
-# Link python3 to python3.13 for consistency
-RUN ln -sf /usr/bin/python3.13 /usr/bin/python3
+# Link python3 to python3 for consistency
+RUN ln -sf /usr/bin/python3 /usr/bin/python3
 
 COPY ./firstboot/first-boot-setup.sh /usr/local/bin/first-boot-setup.sh
 COPY ./firstboot/benchmark-firstboot.service /etc/systemd/system/benchmark-firstboot.service
