@@ -10,7 +10,7 @@ RUN dnf5 install -y \
     R-core R-core-devel \
     gdal-devel proj-devel geos-devel \
     hdf5-devel fftw-devel openblas-devel sqlite-devel \
-    libtiff-devel libjpeg-turbo-devel spatialindex-devel
+    libtiff-devel libjpeg-turbo-devel spatialindex-devel udunits2-devel gsl-devel
 
 # Install uv and Python dependencies
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh
@@ -53,7 +53,7 @@ ENV JULIA_NUM_THREADS=8 \
     PATH="/usr/lib/julia/bin:$PATH"
 
 RUN dnf5 install -y --skip-unavailable --setopt=install_weak_deps=False \
-    python3 R-core gdal proj geos hdf5 fftw openblas \
+    python3 R-core gdal proj geos hdf5 fftw openblas udunits2 gsl \
     time hyperfine git && \
     dnf5 clean all
 
