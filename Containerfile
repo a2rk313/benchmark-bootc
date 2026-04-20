@@ -45,7 +45,7 @@ RUN mkdir -p /opt/R-deps && \
     Rscript -e "install.packages(c('terra', 'sf', 'data.table', 'R.matlab', 'FNN', 'jsonlite', 'digest'), lib='/opt/R-deps', repos='https://cloud.r-project.org/', Ncpus=parallel::detectCores())"
 
 # Install Julia 1.11.9 and precompile packages
-RUN curl -fsSL "https://julialang-s3.julialang.org/bin/linux/x64/1.11/julia-1.11.9-linux-x86_64.tar.gz" | tar -xz -C /opt && \
+RUN curl -fsSL "https://julialang-s3.julialang.org/bin/linux/x64/1.12/julia-1.12.6-linux-x86_64.tar.gz" | tar -xz -C /opt && \
     mv /opt/julia-* /opt/julia
 
 ENV JULIA_DEPOT_PATH="/opt/julia-depot"
