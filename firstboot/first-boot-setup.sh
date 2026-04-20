@@ -33,7 +33,7 @@ fi
 if [ -f "$BENCHMARK_DIR/tools/download_data.py" ]; then
     log "Downloading benchmark data..."
     cd "$BENCHMARK_DIR"
-    python3 tools/download_data.py --all --synthetic 2>&1 | tee -a "$LOG_FILE" || true
+    python3 tools/download_data.py --all 2>&1 | tee -a "$LOG_FILE" || true
 fi
 
 # Create data symlink

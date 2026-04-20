@@ -58,41 +58,37 @@ download_data() {
     echo "    ✓ Data ready"
 }
 
-# 2. PYTHON NATIVE SETUP
-setup_python_native() {
+# 2. PYTHON NATIVE CHECK
+check_python_native() {
     echo ""
-    echo "[2/5] Setting up Python native environment..."
+    echo "[2/5] Verifying system Python environment..."
     
-    python3 -m venv /tmp/thesis-native-python
-    source /tmp/thesis-native-python/bin/activate
+    # Ensure PYTHONPATH includes our pre-baked dependencies
+    export PYTHONPATH="/usr/local/lib/python-deps:$PYTHONPATH"
     
-    pip install --quiet \
-        numpy==1.26.3 \
-        scipy==1.11.4 \
-        pandas==2.1.4 \
-        rasterio==1.3.9
-    
-    python3 -c "import numpy; numpy.show_config()" | grep -i blas
-    echo "    ✓ Python native ready"
+    python3 -c "import numpy; print(f'    ✓ NumPy {numpy.__version__} detected'); numpy.show_config()" | grep -i blas || echo "    ! OpenBLAS not detected in NumPy config"
+    python3 -c "import geopandas; print(f'    ✓ GeoPandas {geopandas.__version__} detected')"
+    echo "    ✓ System Python ready"
 }
 
-# 3. JULIA NATIVE SETUP
-setup_julia_native() {
+# 3. JULIA NATIVE CHECK
+check_julia_native() {
     echo ""
-    echo "[3/5] Setting up Julia native environment..."
+    echo "[3/5] Verifying system Julia environment..."
     
-    julia -e 'using Pkg; Pkg.instantiate(); Pkg.precompile()'
-    echo "    ✓ Julia native ready"
+    export JULIA_DEPOT_PATH="/usr/share/julia/depot"
+    julia -e 'using BenchmarkTools, ArchGDAL; println("    ✓ Julia packages verified (AOT compiled)")'
+    echo "    ✓ System Julia ready"
 }
 
-# 4. R NATIVE SETUP  
-setup_r_native() {
+# 4. R NATIVE CHECK  
+check_r_native() {
     echo ""
-    echo "[4/5] Setting up R native environment..."
+    echo "[4/5] Verifying system R environment..."
     
-    R --quiet -e "La_library()" | grep -i blas
-    R --quiet -e 'install.packages(c("terra", "data.table"), repos="https://cloud.r-project.org")'
-    echo "    ✓ R native ready"
+    Rscript -e "library(terra); library(data.table); cat('    ✓ R packages verified\n')"
+    Rscript -e "cat('    ✓ BLAS: ', La_library(), '\n')" | grep -i blas || echo "    ! OpenBLAS not detected in R"
+    echo "    ✓ System R ready"
 }
 
 # OPTIMIZE SYSTEM FOR BENCHMARKING
@@ -100,11 +96,13 @@ optimize_system() {
     echo ""
     echo "Optimizing system for benchmarking..."
     
+    # Set CPU to performance mode if possible
     if command -v cpupower &> /dev/null; then
         sudo cpupower frequency-set --governor performance 2>/dev/null || true
         echo "✓ CPU governor set to performance"
     fi
     
+    # Drop caches to ensure clean start
     sync
     echo 3 | sudo tee /proc/sys/vm/drop_caches > /dev/null 2>&1 || true
     echo "✓ Filesystem caches dropped"
@@ -114,26 +112,32 @@ optimize_system() {
 run_native_benchmarks() {
     echo ""
     echo "=========================================================================="
-    echo "Running native benchmarks..."
+    echo "Running native benchmarks using system-wide bootc runtimes..."
     echo "=========================================================================="
     
     mkdir -p results/native
     
+    # Ensure environment variables are set for system runtimes
+    export PYTHONPATH="/usr/local/lib/python-deps:$PYTHONPATH"
+    export JULIA_DEPOT_PATH="/usr/share/julia/depot"
+    export JULIA_NUM_THREADS=8
+    export OPENBLAS_NUM_THREADS=8
+    export OMP_NUM_THREADS=8
+    
     # Python
     echo ""
     echo "[Python] Running matrix operations..."
-    source /tmp/thesis-native-python/bin/activate
-    time python3 benchmarks/matrix_ops.py > results/native/matrix_ops_python.json
+    /usr/bin/time -v python3 benchmarks/matrix_ops.py > results/native/matrix_ops_python.json 2> results/native/matrix_ops_python_stats.txt
     
     # Julia
     echo ""
     echo "[Julia] Running matrix operations..."
-    time julia benchmarks/matrix_ops.jl > results/native/matrix_ops_julia.json
+    /usr/bin/time -v julia benchmarks/matrix_ops.jl > results/native/matrix_ops_julia.json 2> results/native/matrix_ops_julia_stats.txt
     
     # R
     echo ""
     echo "[R] Running matrix operations..."
-    time Rscript benchmarks/matrix_ops.R > results/native/matrix_ops_r.json
+    /usr/bin/time -v Rscript benchmarks/matrix_ops.R > results/native/matrix_ops_r.json 2> results/native/matrix_ops_r_stats.txt
     
     echo ""
     echo "✓ Native benchmarks complete"
@@ -155,9 +159,9 @@ restore_system() {
 main() {
     ensure_benchmarks
     download_data
-    setup_python_native
-    setup_julia_native
-    setup_r_native
+    check_python_native
+    check_julia_native
+    check_r_native
     optimize_system
     run_native_benchmarks
     restore_system

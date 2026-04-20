@@ -1,0 +1,13 @@
+# Simple anaconda-iso configuration for thesis-benchmarks
+[customizations.installer.modules]
+enable = [
+  "org.fedoraproject.Anaconda.Modules.Storage",
+  "org.fedoraproject.Anaconda.Modules.Runtime",
+  "org.fedoraproject.Anaconda.Modules.Network",
+  "org.fedoraproject.Anaconda.Modules.Users",
+  "org.fedoraproject.Anaconda.Modules.Timezone"
+]
+
+[customizations.installer.kickstart]
+# We don't need a complex kickstart for standard install, but can add one if needed.
+# For now, let Anaconda handle the defaults.
