@@ -63,8 +63,10 @@ check_python_native() {
     echo ""
     echo "[2/5] Verifying system Python environment..."
     
-    # Ensure PYTHONPATH includes our pre-baked dependencies
-    export PYTHONPATH="/usr/local/lib/python-deps:$PYTHONPATH"
+    if ! command -v python3 &> /dev/null; then
+        echo "    ! python3 not found in PATH"
+        return 1
+    fi
     
     python3 -c "import numpy; print(f'    ✓ NumPy {numpy.__version__} detected'); numpy.show_config()" | grep -i blas || echo "    ! OpenBLAS not detected in NumPy config"
     python3 -c "import geopandas; print(f'    ✓ GeoPandas {geopandas.__version__} detected')"
@@ -76,8 +78,14 @@ check_julia_native() {
     echo ""
     echo "[3/5] Verifying system Julia environment..."
     
+    if ! command -v julia &> /dev/null; then
+        echo "    ! julia not found in PATH"
+        return 1
+    fi
+    
     export JULIA_DEPOT_PATH="/usr/share/julia/depot"
-    julia -e 'using BenchmarkTools, ArchGDAL; println("    ✓ Julia packages verified (AOT compiled)")'
+    julia -e 'using Pkg; if !haskey(Pkg.dependencies(), UUID("ArchGDAL")); Pkg.add("ArchGDAL"); end'
+    julia -e 'using ArchGDAL; println("    ✓ Julia packages verified")'
     echo "    ✓ System Julia ready"
 }
 
@@ -85,6 +93,11 @@ check_julia_native() {
 check_r_native() {
     echo ""
     echo "[4/5] Verifying system R environment..."
+    
+    if ! command -v Rscript &> /dev/null; then
+        echo "    ! Rscript not found in PATH"
+        return 1
+    fi
     
     Rscript -e "library(terra); library(data.table); cat('    ✓ R packages verified\n')"
     Rscript -e "cat('    ✓ BLAS: ', La_library(), '\n')" | grep -i blas || echo "    ! OpenBLAS not detected in R"
@@ -118,7 +131,6 @@ run_native_benchmarks() {
     mkdir -p results/native
     
     # Ensure environment variables are set for system runtimes
-    export PYTHONPATH="/usr/local/lib/python-deps:$PYTHONPATH"
     export JULIA_DEPOT_PATH="/usr/share/julia/depot"
     export JULIA_NUM_THREADS=8
     export OPENBLAS_NUM_THREADS=8
@@ -133,6 +145,7 @@ run_native_benchmarks() {
     echo ""
     echo "[Julia] Running matrix operations..."
     /usr/bin/time -v julia benchmarks/matrix_ops.jl > results/native/matrix_ops_julia.json 2> results/native/matrix_ops_julia_stats.txt
+
     
     # R
     echo ""

@@ -1,75 +1,39 @@
 # ==============================================================================
-# STAGE 1: THE HEAVY BUILDER
+# BARE-METAL GIS BENCHMARKING OS (BOOTC)
 # ==============================================================================
-FROM registry.fedoraproject.org/fedora:43 AS builder
+FROM quay.io/fedora/fedora-bootc:43
 
-# Install compilers and development headers
-RUN dnf5 install -y \
-    gcc gcc-c++ make cmake git curl wget tar \
-    python3 python3-pip python3-devel \
-    R-core R-core-devel \
-    gdal-devel proj-devel geos-devel \
-    hdf5-devel fftw-devel openblas-devel sqlite-devel \
-    libtiff-devel libjpeg-turbo-devel spatialindex-devel udunits2-devel gsl-devel
-
-# Install uv and Python dependencies
-RUN curl -LsSf https://astral.sh/uv/install.sh | sh
-ENV PATH="/root/.local/bin:$PATH"
-
-# Use uv to install Python packages targeting Python 3.13
-RUN uv pip install --system --python 3.14 --target=/opt/python-deps \
-    "numpy>=2.2" "scipy>=1.15" "pandas>=2.2" "matplotlib>=3.9" \
-    "seaborn>=0.13" "scikit-learn>=1.6" "shapely>=2.0" "pyproj>=3.6" \
-    "fiona>=1.10" "rasterio>=1.4" "geopandas>=1.0" "rioxarray>=0.18" \
-    "xarray>=2024.1" "psutil>=6.0" "tqdm>=4.66" "h5py>=3.11"
-
-# Install R dependencies
-RUN mkdir -p /opt/R-deps && \
-    echo "CXX14FLAGS += -include cstdint" >> /usr/lib64/R/etc/Makevars.site && \
-    echo "CXX17FLAGS += -include cstdint" >> /usr/lib64/R/etc/Makevars.site && \
-    echo "CXX20FLAGS += -include cstdint" >> /usr/lib64/R/etc/Makevars.site && \
-    Rscript -e "install.packages(c('terra', 'sf', 'data.table', 'R.matlab', 'FNN', 'jsonlite', 'digest'), lib='/opt/R-deps', repos='https://cloud.r-project.org/', Ncpus=parallel::detectCores())"
-
-# Install Julia 1.12.3 (Thesis expectation)
-RUN curl -fsSL "https://julialang-s3.julialang.org/bin/linux/x64/1.12/julia-1.12.6-linux-x86_64.tar.gz" | tar -xz -C /opt && \
-    mv /opt/julia-* /opt/julia
-
-ENV JULIA_DEPOT_PATH="/opt/julia-depot"
-ENV PATH="/opt/julia/bin:$PATH"
-RUN julia -e 'using Pkg; Pkg.add(["BenchmarkTools", "CSV", "DataFrames", "SHA", "MAT", "JSON3", "NearestNeighbors", "LibGEOS", "Shapefile", "ArchGDAL", "GeoDataFrames"])' && \
-    julia -e 'using Pkg; Pkg.precompile()'
-
-# ==============================================================================
-# STAGE 2: THE FINAL BOOTC OS
-# ==============================================================================
-FROM quay.io/fedora/fedora-kinoite:43
-
+# Set environment variables for build and runtime
 ENV JULIA_NUM_THREADS=8 \
     OPENBLAS_NUM_THREADS=8 \
     OMP_NUM_THREADS=8 \
     PYTHONUNBUFFERED=1 \
-    JULIA_DEPOT_PATH="/usr/share/julia/depot" \
     PYTHONPATH="/usr/local/lib/python-deps" \
-    PATH="/usr/lib/julia/bin:$PATH"
+    JULIA_DEPOT_PATH="/usr/share/julia/depot"
 
-RUN dnf5 install -y --skip-unavailable --setopt=install_weak_deps=False \
-    python3 R-core gdal proj geos hdf5 fftw openblas udunits2 gsl \
-    time hyperfine git && \
-    dnf5 clean all
-
-COPY --from=builder /opt/python-deps /usr/local/lib/python-deps
-COPY --from=builder /opt/R-deps /usr/lib64/R/library
-COPY --from=builder /opt/julia /usr/lib/julia
-COPY --from=builder /opt/julia-depot /usr/share/julia/depot
-
-# Link python3 to python3 for consistency
-RUN ln -sf /usr/bin/python3 /usr/bin/python3
-
+# Copy the build script and other necessary files
+COPY ./build_files/build.sh /tmp/build.sh
 COPY ./firstboot/first-boot-setup.sh /usr/local/bin/first-boot-setup.sh
 COPY ./firstboot/benchmark-firstboot.service /etc/systemd/system/benchmark-firstboot.service
+COPY ./native_benchmark.sh /usr/local/bin/native_benchmark.sh
+COPY ./native_helper.sh /usr/local/bin/native_helper.sh
 
+# Run the consolidated build script
+RUN chmod +x /tmp/build.sh && \
+    /tmp/build.sh && \
+    rm /tmp/build.sh
+
+# Final OS configuration
 RUN chmod +x /usr/local/bin/first-boot-setup.sh && \
+    chmod +x /usr/local/bin/native_benchmark.sh && \
+    chmod +x /usr/local/bin/native_helper.sh && \
     systemctl enable benchmark-firstboot.service
 
+# Setup writable data and benchmark partitions
 RUN mkdir -p /var/data && ln -s /var/data /data && \
     mkdir -p /var/benchmarks && ln -s /var/benchmarks /benchmarks
+
+# Ensure PATH and PYTHONPATH are available for login shells
+RUN echo "export PYTHONPATH=/usr/local/lib/python-deps:\$PYTHONPATH" >> /etc/profile.d/benchmark.sh && \
+    echo "export JULIA_DEPOT_PATH=/usr/share/julia/depot" >> /etc/profile.d/benchmark.sh
+
