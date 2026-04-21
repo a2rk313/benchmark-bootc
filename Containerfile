@@ -20,8 +20,7 @@ COPY ./native_helper.sh /usr/local/bin/native_helper.sh
 
 # Run the consolidated build script
 RUN chmod +x /tmp/build.sh && \
-    /tmp/build.sh && \
-    rm /tmp/build.sh
+    /tmp/build.sh
 
 # Final OS configuration
 RUN chmod +x /usr/local/bin/first-boot-setup.sh && \
