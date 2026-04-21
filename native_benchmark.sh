@@ -12,6 +12,16 @@ echo "==========================================================================
 echo "NATIVE BARE-METAL BENCHMARK RUNNER"
 echo "=========================================================================="
 
+# CHECK SYSTEM MODE (GUI vs HEADLESS)
+SYSTEM_TARGET=$(systemctl get-default)
+if [[ "$SYSTEM_TARGET" == "graphical.target" ]]; then
+    SYSTEM_MODE="GUI (KDE Plasma)"
+else
+    SYSTEM_MODE="Headless (Server)"
+fi
+echo "System Mode: $SYSTEM_MODE"
+echo "--------------------------------------------------------------------------"
+
 # 0. ENSURE BENCHMARKS ARE AVAILABLE
 ensure_benchmarks() {
     echo ""
