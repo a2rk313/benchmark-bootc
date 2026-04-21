@@ -138,13 +138,16 @@ run_native_benchmarks() {
     echo "Running native benchmarks using system-wide bootc runtimes..."
     echo "=========================================================================="
     
+    # Ensure we are in the benchmark directory for relative data paths
+    cd "$BENCHMARK_DIR"
+
     # Use a persistent, writable location for results
-    # /benchmarks is a symlink to /var/benchmarks (writable)
     RESULTS_BASE="$BENCHMARK_DIR/results/native"
     mkdir -p "$RESULTS_BASE"
     
     # Ensure environment variables are set for system runtimes
     export JULIA_DEPOT_PATH="/usr/share/julia/depot"
+    export PYTHONPATH="/usr/local/lib/python-deps:/usr/lib64/python3.14/site-packages:$PYTHONPATH"
     export JULIA_NUM_THREADS=8
     export OPENBLAS_NUM_THREADS=8
     export OMP_NUM_THREADS=8

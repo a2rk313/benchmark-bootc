@@ -78,10 +78,10 @@ echo "Triggering deep precompilation (Warmup)..."
 julia -e 'using ArchGDAL, GeoDataFrames, LibGEOS, DataFrames; println("✓ Heavy GIS packages loaded successfully")'
 julia -e 'using Pkg; Pkg.precompile()'
 
-# CLEANUP: Only remove transient data, KEEP compiled/ and artifacts/
+# CLEANUP: Only remove transient data, KEEP registries/, compiled/ and artifacts/
+# registries/ is needed for runtime package resolution
 # compiled/ contains the .ji and .so files
 # artifacts/ contains the underlying C++ shared libraries (GDAL, GEOS, etc.)
-rm -rf $JULIA_DEPOT_PATH/registries/*
 rm -rf $JULIA_DEPOT_PATH/scratchspaces/*
 rm -rf $JULIA_DEPOT_PATH/logs/*
 julia -e 'using Pkg, Dates; Pkg.gc(collect_delay=Day(0))'
