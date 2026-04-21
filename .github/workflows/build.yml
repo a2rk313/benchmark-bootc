@@ -3,11 +3,21 @@ on:
   pull_request:
     branches:
       - main
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'LICENSE'
+      - '.gitignore'
+      - 'artifacthub-repo.yml'
   push:
     branches:
       - main
     paths-ignore:
-      - '**/README.md'
+      - '**.md'
+      - 'docs/**'
+      - 'LICENSE'
+      - '.gitignore'
+      - 'artifacthub-repo.yml'
   workflow_dispatch:
 
 env:
