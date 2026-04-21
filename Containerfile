@@ -32,9 +32,9 @@ RUN chmod +x /usr/local/bin/first-boot-setup.sh && \
     chmod +x /usr/local/bin/native_helper.sh && \
     systemctl enable benchmark-firstboot.service
 
-# Setup writable data and benchmark partitions
-RUN mkdir -p /var/data && ln -s /var/data /data && \
-    mkdir -p /var/benchmarks && ln -s /var/benchmarks /benchmarks
+# Setup writable benchmark partition (which contains the data/ folder)
+RUN mkdir -p /var/benchmarks && ln -s /var/benchmarks /benchmarks && \
+    ln -sf /benchmarks/data /data
 
 # Ensure PATH and PYTHONPATH are available for login shells
 RUN echo "export PYTHONPATH=/usr/local/lib/python-deps:\$PYTHONPATH" >> /etc/profile.d/benchmark.sh && \
