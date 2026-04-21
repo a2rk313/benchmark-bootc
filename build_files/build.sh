@@ -67,15 +67,23 @@ echo "=== 6. Pre-installing Julia packages globally ==="
 export JULIA_DEPOT_PATH="/usr/share/julia/depot"
 mkdir -p $JULIA_DEPOT_PATH
 
-# Install globally so they are ready when the repo is cloned later
+# Install globally and force precompilation of the entire dependency graph
 julia -e 'using Pkg; Pkg.add([
     "BenchmarkTools", "CSV", "DataFrames", "SHA", "MAT", "JSON3",
     "NearestNeighbors", "LibGEOS", "Shapefile", "ArchGDAL", "GeoDataFrames"
 ])'
+
+# Warmup: Actually load the heavy packages to trigger binary cache generation
+echo "Triggering deep precompilation (Warmup)..."
+julia -e 'using ArchGDAL, GeoDataFrames, LibGEOS, DataFrames; println("✓ Heavy GIS packages loaded successfully")'
 julia -e 'using Pkg; Pkg.precompile()'
 
-rm -rf /usr/share/julia/depot/packages/*/
-rm -rf /usr/share/julia/depot/artifacts/*/
+# CLEANUP: Only remove transient data, KEEP compiled/ and artifacts/
+# compiled/ contains the .ji and .so files
+# artifacts/ contains the underlying C++ shared libraries (GDAL, GEOS, etc.)
+rm -rf $JULIA_DEPOT_PATH/registries/*
+rm -rf $JULIA_DEPOT_PATH/scratchspaces/*
+rm -rf $JULIA_DEPOT_PATH/logs/*
 julia -e 'using Pkg, Dates; Pkg.gc(collect_delay=Day(0))'
 
 echo "=== 7. Final Deep Clean ==="

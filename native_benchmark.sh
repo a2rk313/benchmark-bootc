@@ -128,7 +128,10 @@ run_native_benchmarks() {
     echo "Running native benchmarks using system-wide bootc runtimes..."
     echo "=========================================================================="
     
-    mkdir -p results/native
+    # Use a persistent, writable location for results
+    # /benchmarks is a symlink to /var/benchmarks (writable)
+    RESULTS_BASE="$BENCHMARK_DIR/results/native"
+    mkdir -p "$RESULTS_BASE"
     
     # Ensure environment variables are set for system runtimes
     export JULIA_DEPOT_PATH="/usr/share/julia/depot"
@@ -136,21 +139,42 @@ run_native_benchmarks() {
     export OPENBLAS_NUM_THREADS=8
     export OMP_NUM_THREADS=8
     
-    # Python
-    echo ""
-    echo "[Python] Running matrix operations..."
-    /usr/bin/time -v python3 benchmarks/matrix_ops.py > results/native/matrix_ops_python.json 2> results/native/matrix_ops_python_stats.txt
-    
-    # Julia
-    echo ""
-    echo "[Julia] Running matrix operations..."
-    /usr/bin/time -v julia benchmarks/matrix_ops.jl > results/native/matrix_ops_julia.json 2> results/native/matrix_ops_julia_stats.txt
+    # List of benchmark scenarios to run
+    SCENARIOS=(
+        "matrix_ops"
+        "raster_algebra"
+        "zonal_stats"
+        "vector_pip"
+        "timeseries_ndvi"
+        "reprojection"
+        "interpolation_idw"
+        "hsi_stream"
+        "io_ops"
+    )
 
-    
-    # R
-    echo ""
-    echo "[R] Running matrix operations..."
-    /usr/bin/time -v Rscript benchmarks/matrix_ops.R > results/native/matrix_ops_r.json 2> results/native/matrix_ops_r_stats.txt
+    for scenario in "${SCENARIOS[@]}"; do
+        echo ""
+        echo ">>> RUNNING SCENARIO: $scenario"
+        echo "--------------------------------------------------------------------------"
+
+        # Python
+        if [ -f "benchmarks/${scenario}.py" ]; then
+            echo "[Python] Running $scenario..."
+            /usr/bin/time -v python3 "benchmarks/${scenario}.py" > "$RESULTS_BASE/${scenario}_python.json" 2> "$RESULTS_BASE/${scenario}_python_stats.txt" || echo "    ! Python $scenario failed"
+        fi
+        
+        # Julia
+        if [ -f "benchmarks/${scenario}.jl" ]; then
+            echo "[Julia] Running $scenario..."
+            /usr/bin/time -v julia "benchmarks/${scenario}.jl" > "$RESULTS_BASE/${scenario}_julia.json" 2> "$RESULTS_BASE/${scenario}_julia_stats.txt" || echo "    ! Julia $scenario failed"
+        fi
+        
+        # R
+        if [ -f "benchmarks/${scenario}.R" ]; then
+            echo "[R] Running $scenario..."
+            /usr/bin/time -v Rscript "benchmarks/${scenario}.R" > "$RESULTS_BASE/${scenario}_r.json" 2> "$RESULTS_BASE/${scenario}_r_stats.txt" || echo "    ! R $scenario failed"
+        fi
+    done
     
     echo ""
     echo "✓ Native benchmarks complete"
