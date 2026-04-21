@@ -14,7 +14,8 @@ dnf5 install -y --skip-unavailable --setopt=install_weak_deps=False \
     hdf5 hdf5-devel fftw fftw-devel openblas openblas-devel lapack blas \
     libpq-devel sqlite-devel netcdf-devel udunits2-devel gsl-devel \
     libtiff-devel libjpeg-turbo-devel git cmake wget curl tar gzip \
-    time hyperfine spatialindex spatialindex-devel
+    time hyperfine spatialindex spatialindex-devel \
+    numactl kernel-tools
 
 dnf5 clean all
 rm -rf /var/cache/libdnf5/*
