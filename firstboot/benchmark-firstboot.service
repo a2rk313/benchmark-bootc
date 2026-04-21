@@ -2,6 +2,7 @@
 Description=Benchmark Thesis First-Boot Setup
 After=network-online.target
 Wants=network-online.target
+ConditionPathExists=!/var/lib/benchmark-firstboot-complete
 
 [Service]
 Type=oneshot
