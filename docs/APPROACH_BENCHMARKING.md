@@ -162,16 +162,27 @@ benchmark-thesis/
 ---
 
 ## 8. Usage
-
 ### Deploy the OS
 
 1. Pull the image: `podman pull ghcr.io/a2rk313/benchmark-bootc:latest`
 2. Convert to bootable media using `bootc-image-builder`
 3. Boot the bare-metal server
 
+### Update the OS (Existing Deployment)
+
+For existing `bootc` or `rpm-ostree` systems:
+```bash
+# Update tracking image
+sudo rpm-ostree upgrade
+# Or update a specific deployment index
+# sudo rpm-ostree upgrade [index]
+sudo reboot
+```
+
 ### First Boot
 
 The `benchmark-firstboot.service` automatically:
+...
 1. Clones `benchmark-thesis` to `/benchmarks`
 2. Downloads datasets to `/data`
 3. Symlinks orchestrators to `/usr/local/bin`

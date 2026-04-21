@@ -27,7 +27,7 @@ This project uses a **Split-Repository Design** for maximum flexibility:
 
 ## Quick Start
 
-### 1. Deploy the OS
+### 1. Deploy or Update the OS
 
 ```bash
 # Option A: Rebase from another bootc system
@@ -35,7 +35,13 @@ sudo bootc switch ghcr.io/a2rk313/benchmark-bootc:latest
 sudo bootc apply
 reboot
 
-# Option B: Build VM locally
+# Option B: Update an existing deployment
+sudo rpm-ostree upgrade
+# Or specifically by deployment index if multiple are present
+# sudo rpm-ostree upgrade [index]
+sudo reboot
+
+# Option C: Build VM locally
 just build-qcow2
 ```
 
