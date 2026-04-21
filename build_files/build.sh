@@ -62,6 +62,11 @@ echo "CXX14FLAGS += -include cstdint" >> /usr/lib64/R/etc/Makevars.site
 echo "CXX17FLAGS += -include cstdint" >> /usr/lib64/R/etc/Makevars.site
 echo "CXX20FLAGS += -include cstdint" >> /usr/lib64/R/etc/Makevars.site
 
+# Ensure R uses the same OpenBLAS backend as everyone else via FlexiBLAS
+if command -v flexiblas &> /dev/null; then
+    flexiblas set OPENBLAS
+fi
+
 Rscript -e "install.packages(c('terra', 'sf', 'data.table', 'R.matlab', 'FNN', 'jsonlite', 'digest'), lib='/usr/lib64/R/library', repos='https://cloud.r-project.org/', Ncpus=parallel::detectCores(), clean=TRUE)"
 
 echo "=== 6. Pre-installing Julia packages globally ==="

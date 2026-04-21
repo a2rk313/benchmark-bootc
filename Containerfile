@@ -26,7 +26,8 @@ RUN chmod +x /tmp/build.sh && \
     /tmp/build.sh
 
 # Final OS configuration
-RUN chmod +x /usr/local/bin/first-boot-setup.sh && \
+RUN touch /etc/benchmark-bootc-release && \
+    chmod +x /usr/local/bin/first-boot-setup.sh && \
     chmod +x /usr/local/bin/toggle_gui.sh && \
     chmod +x /usr/local/bin/native_benchmark.sh && \
     chmod +x /usr/local/bin/native_helper.sh && \
