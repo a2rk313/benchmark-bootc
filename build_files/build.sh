@@ -43,6 +43,7 @@ uv pip install --system --prefix=/usr --no-cache \
 echo "=== 4. Installing Julia ==="
 JULIA_VERSION="1.12.6"
 if [ "$ARCH" = "x86_64" ]; then
+
     JULIA_ARCH="x64"; JULIA_TAR_ARCH="x86_64"
 elif [ "$ARCH" = "aarch64" ]; then
     JULIA_ARCH="aarch64"; JULIA_TAR_ARCH="aarch64"

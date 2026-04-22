@@ -19,7 +19,7 @@ This project uses a **Split-Repository Design** for maximum flexibility:
 
 ## What's Included in the OS
 
-- **Julia 1.11.x** → Precompiled AOT spatial packages
+- **Julia 1.12.x** → Precompiled AOT spatial packages
 - **Python 3.x** via uv → NumPy, SciPy, GeoPandas, Rasterio
 - **R 4.5.x** → terra, sf, data.table
 - **GIS Libraries**: GDAL, PROJ, GEOS, HDF5, FFTW, OpenBLAS
