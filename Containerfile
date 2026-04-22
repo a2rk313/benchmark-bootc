@@ -44,14 +44,15 @@ RUN rm -rf /opt/julia-depot/scratchspaces/* /opt/julia-depot/logs/* && \
 FROM quay.io/fedora/fedora-kinoite:43
 
 # Set environment variables for runtime fairness
+# Note: Using /usr/share/julia/depot for system-wide precompiled packages
 ENV JULIA_NUM_THREADS=8 \
     OPENBLAS_NUM_THREADS=8 \
     FLEXIBLAS_NUM_THREADS=8 \
     GOTO_NUM_THREADS=8 \
     OMP_NUM_THREADS=8 \
     PYTHONUNBUFFERED=1 \
-    JULIA_DEPOT_PATH="/var/lib/julia/depot" \
-    PATH="/usr/lib/julia/bin:$PATH"
+    JULIA_DEPOT_PATH="/usr/share/julia/depot" \
+    PATH="/usr/lib/julia/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 
 # Install native Python packages and runtime dependencies
 RUN dnf5 install -y --skip-unavailable --setopt=install_weak_deps=False \
@@ -74,33 +75,31 @@ RUN if command -v flexiblas &> /dev/null; then \
 # Copy built artifacts from the builder stage
 COPY --from=builder /opt/R-deps /usr/lib64/R/library
 COPY --from=builder /opt/julia /usr/lib/julia
-COPY --from=builder /opt/julia-depot /var/lib/julia/depot
+COPY --from=builder /opt/julia-depot /usr/share/julia/depot
 
-# Link runtimes for global visibility
-RUN ln -sf /usr/bin/python3 /usr/bin/python3 && \
-    ln -s /usr/lib/julia/bin/julia /usr/bin/julia && \
-    mkdir -p /usr/share/julia && \
-    ln -sf /var/lib/julia/depot /usr/share/julia/depot
+# Link runtimes for global visibility (NO self-referential python symlink)
+RUN ln -s /usr/lib/julia/bin/julia /usr/bin/julia && \
+    chmod -R 755 /usr/share/julia/depot
 
-# Copy orchestrators and scripts
-COPY ./firstboot/setup-benchmarks.sh /usr/local/bin/setup-benchmarks.sh
-COPY ./firstboot/toggle_gui.sh /usr/local/bin/toggle_gui.sh
-COPY ./native_benchmark.sh /usr/local/bin/native_benchmark.sh
-COPY ./native_helper.sh /usr/local/bin/native_helper.sh
+# Copy orchestrators and scripts (to /usr/bin for bootc stability)
+COPY ./firstboot/setup-benchmarks.sh /usr/bin/setup-benchmarks.sh
+COPY ./firstboot/toggle_gui.sh /usr/bin/toggle_gui.sh
+COPY ./native_benchmark.sh /usr/bin/native_benchmark.sh
+COPY ./native_helper.sh /usr/bin/native_helper.sh
 
 # Final OS configuration
 RUN touch /etc/benchmark-bootc-release && \
-    chmod +x /usr/local/bin/setup-benchmarks.sh && \
-    chmod +x /usr/local/bin/toggle_gui.sh && \
-    chmod +x /usr/local/bin/native_benchmark.sh && \
-    chmod +x /usr/local/bin/native_helper.sh
+    chmod +x /usr/bin/setup-benchmarks.sh && \
+    chmod +x /usr/bin/toggle_gui.sh && \
+    chmod +x /usr/bin/native_benchmark.sh && \
+    chmod +x /usr/bin/native_helper.sh
 
 # Setup writable benchmark partition (contains data/ folder)
 RUN mkdir -p /var/benchmarks && ln -s /var/benchmarks /benchmarks && \
     ln -sf /benchmarks/data /data
 
 # Ensure all thread vars and paths survive into login shells
-RUN echo "export JULIA_DEPOT_PATH=/var/lib/julia/depot"            >> /etc/profile.d/benchmark.sh && \
+RUN echo "export JULIA_DEPOT_PATH=/usr/share/julia/depot"            >> /etc/profile.d/benchmark.sh && \
     echo "export OPENBLAS_NUM_THREADS=8"                             >> /etc/profile.d/benchmark.sh && \
     echo "export FLEXIBLAS_NUM_THREADS=8"                            >> /etc/profile.d/benchmark.sh && \
     echo "export GOTO_NUM_THREADS=8"                                 >> /etc/profile.d/benchmark.sh && \

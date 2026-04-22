@@ -10,8 +10,12 @@ All notable changes to the `benchmark-bootc` project will be documented in this 
 
 ### Changed
 - **Architectural Simplification**: Completely refactored the Python environment to use pre-compiled **native Fedora RPM packages** instead of source-building via `uv`. This eliminates compilation errors and ensures maximum runtime stability.
-- **Removed Automation**: Deleted the `benchmark-firstboot.service` to prevent background "magic" failures and provide a more standard appliance experience.
-- **Robust Pathing**: Simplified `PYTHONPATH` and `JULIA_DEPOT_PATH` logic to rely on system-standard locations where possible.
+- **Bootc-Native Alignment**: Moved all custom scripts (`setup-benchmarks.sh`, `native_benchmark.sh`) to `/usr/bin` to ensure they are correctly captured in the immutable OS commit.
+- **Julia Depot Standard**: Standardized `JULIA_DEPOT_PATH` to `/usr/share/julia/depot` for system-wide precompiled packages.
+
+### Fixed
+- **Python Runtime**: Resolved a critical issue where a self-referential symlink was breaking the `python3` binary.
+- **Script Visibility**: Fixed issues with scripts "disappearing" by moving them from `/usr/local/bin` to the image-native `/usr/bin`.
 
 ### Changed
 - **Architectural Refactor**: Reinstated the robust **multi-stage build** in `Containerfile`. This isolates the heavy compilation (Stage 1) from the final lean OS (Stage 2), ensuring build-time dependencies like `Cython` and `setuptools` do not pollute the final image while resolving source-build errors for `fiona`.
