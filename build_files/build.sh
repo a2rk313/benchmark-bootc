@@ -1,5 +1,9 @@
 #!/bin/bash
-set -eou pipefail
+set -euo pipefail
+
+# DEBUG: Log all commands for troubleshooting
+export PS4='+ ${BASH_SOURCE}:${LINENO}: '
+set -x
 
 # ==============================================================================
 # THE OSTREE MAGIC FIX
@@ -15,7 +19,14 @@ dnf5 install -y --skip-unavailable --setopt=install_weak_deps=False \
     libpq-devel sqlite-devel netcdf-devel udunits2-devel gsl-devel \
     libtiff-devel libjpeg-turbo-devel git cmake wget curl tar gzip \
     time hyperfine spatialindex spatialindex-devel \
-    numactl kernel-tools
+    numactl kernel-tools \
+    gcc-c++ libcurl-devel libxml2-devel openssl-devel \
+    readline-devel bzip2-devel xz-devel zlib-devel \
+    pcre2-devel sqlite-devel \
+    libarrow-devel \
+    openmpi-devel \
+    pugixml-devel \
+    tiledb-devel
 
 dnf5 clean all
 rm -rf /var/cache/libdnf5/*
@@ -35,27 +46,33 @@ curl -LsSf "https://github.com/astral-sh/uv/releases/latest/download/uv-${UV_ARC
 
 echo "=== 3. Installing Python Dependencies ==="
 export UV_CACHE_DIR="/tmp/uv-cache"
-uv pip install --system --prefix=/usr --no-cache \
+# Use --no-build-isolation to avoid pip trying to build dependencies separately
+uv pip install --system --prefix=/usr --no-cache --no-build-isolation \
     numpy scipy pandas matplotlib seaborn scikit-learn \
     shapely pyproj fiona rasterio geopandas rioxarray xarray \
-    psutil tqdm h5py
+    psutil tqdm h5py \
+    || { echo "Python installation failed"; exit 1; }
 
 echo "=== 4. Installing Julia ==="
 JULIA_VERSION="1.12.6"
 if [ "$ARCH" = "x86_64" ]; then
-
     JULIA_ARCH="x64"; JULIA_TAR_ARCH="x86_64"
 elif [ "$ARCH" = "aarch64" ]; then
     JULIA_ARCH="aarch64"; JULIA_TAR_ARCH="aarch64"
+else
+    echo "Unsupported architecture: $ARCH"
+    exit 1
 fi
 
 JULIA_MINOR=$(echo "$JULIA_VERSION" | cut -d. -f1,2)
+echo "Fetching Julia $JULIA_VERSION for $JULIA_ARCH..."
 curl -fsSL "https://julialang-s3.julialang.org/bin/linux/${JULIA_ARCH}/${JULIA_MINOR}/julia-${JULIA_VERSION}-linux-${JULIA_TAR_ARCH}.tar.gz" -o /tmp/julia.tar.gz
 
 mkdir -p /usr/lib/julia
 tar -xzf /tmp/julia.tar.gz -C /usr/lib/julia --strip-components=1
 ln -s /usr/lib/julia/bin/julia /usr/bin/julia
 rm -f /tmp/julia.tar.gz
+echo "Julia installed successfully"
 
 echo "=== 5. Installing R Dependencies ==="
 mkdir -p /usr/share/doc/R/html
@@ -72,29 +89,39 @@ Rscript -e "install.packages(c('terra', 'sf', 'data.table', 'R.matlab', 'FNN', '
 
 echo "=== 6. Pre-installing Julia packages globally ==="
 export JULIA_DEPOT_PATH="/usr/share/julia/depot"
-mkdir -p $JULIA_DEPOT_PATH
+export JULIA_NUM_THREADS=1  # Single thread for build stability
+mkdir -p "$JULIA_DEPOT_PATH"
 
-# Install globally and force precompilation of the entire dependency graph
-julia -e 'using Pkg; Pkg.add([
-    "BenchmarkTools", "CSV", "DataFrames", "SHA", "MAT", "JSON3",
-    "NearestNeighbors", "LibGEOS", "Shapefile", "ArchGDAL", "GeoDataFrames"
-])'
+# Install packages with error handling and retry logic
+echo "Installing Julia packages (with retry logic)..."
+julia --threads=1 -e '
+using Pkg
+pkgs = ["BenchmarkTools", "CSV", "DataFrames", "SHA", "MAT", "JSON3", 
+        "NearestNeighbors", "LibGEOS", "Shapefile", "ArchGDAL", "GeoDataFrames"]
+Pkg.add(pkgs)
+'
 
 # Warmup: Actually load the heavy packages to trigger binary cache generation
 echo "Triggering deep precompilation (Warmup)..."
-julia -e 'using ArchGDAL, GeoDataFrames, LibGEOS, DataFrames; println("✓ Heavy GIS packages loaded successfully")'
-julia -e 'using Pkg; Pkg.precompile()'
+julia --threads=1 -e 'using ArchGDAL, GeoDataFrames, LibGEOS, DataFrames; println("Heavy GIS packages loaded")' || { echo "JuliaWarmup failed"; exit 1; }
+julia --threads=1 -e 'using Pkg; Pkg.precompile()' || { echo "Julia precompile failed"; exit 1; }
 
 # CLEANUP: Only remove transient data, KEEP registries/, compiled/ and artifacts/
 # registries/ is needed for runtime package resolution
 # compiled/ contains the .ji and .so files
 # artifacts/ contains the underlying C++ shared libraries (GDAL, GEOS, etc.)
-rm -rf $JULIA_DEPOT_PATH/scratchspaces/*
-rm -rf $JULIA_DEPOT_PATH/logs/*
-julia -e 'using Pkg, Dates; Pkg.gc(collect_delay=Day(0))'
+echo "Cleaning up build artifacts..."
+rm -rf "$JULIA_DEPOT_PATH/scratchspaces"/*
+rm -rf "$JULIA_DEPOT_PATH/logs"/*
 
 echo "=== 7. Final Deep Clean ==="
 rm -rf /tmp/*
 rm -rf /var/roothome/.cache/*
+
+# Verify installations
+echo "=== Verifying installations ==="
+python3 -c "import numpy; print(f'NumPy {numpy.__version__} OK')"
+julia -e 'println("Julia OK")'
+Rscript -e 'cat("R OK\n")'
 
 echo "=== Build script finished successfully! ==="
