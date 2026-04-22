@@ -46,13 +46,20 @@ RUN mkdir -p /opt/R-deps && \
 # ==============================================================================
 FROM quay.io/fedora/fedora-kinoite:43
 
-# Set environment variables for runtime fairness
+# ACADEMIC RIGOR: High-Performance Benchmarking Environment
 ENV JULIA_NUM_THREADS=8 \
     OPENBLAS_NUM_THREADS=8 \
     FLEXIBLAS_NUM_THREADS=8 \
     GOTO_NUM_THREADS=8 \
     OMP_NUM_THREADS=8 \
+    FLEXIBLAS=OPENBLAS-OPENMP \
+    R_MAX_VSIZE=16G \
     PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    GDAL_DISABLE_READDIR_ON_OPEN=EMPTY_DIR \
+    GDAL_CACHEMAX=512 \
+    NPY_BLAS_ORDER=openblas \
+    NPY_LAPACK_ORDER=openblas \
     JULIA_DEPOT_PATH="/usr/share/julia/depot" \
     PATH="/usr/lib/julia/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 
@@ -82,16 +89,14 @@ RUN ln -s /usr/lib/julia/bin/julia /usr/bin/julia && \
 RUN mkdir -p /var/benchmarks && ln -s /var/benchmarks /benchmarks && \
     ln -sf /benchmarks/data /data
 
-# ACADEMIC RIGOR: Dynamic Runtime Fairness
-# We resolve the FlexiBLAS backend and set all thread counts at login
+# ACADEMIC RIGOR: Ensure environment survive into login shells
 RUN echo '# Benchmark Environment Initialization' > /etc/profile.d/benchmark.sh && \
-    echo 'export JULIA_DEPOT_PATH=/usr/share/julia/depot' >> /etc/profile.d/benchmark.sh && \
-    echo 'export JULIA_NUM_THREADS=8' >> /etc/profile.d/benchmark.sh && \
-    echo 'export OPENBLAS_NUM_THREADS=8' >> /etc/profile.d/benchmark.sh && \
-    echo 'export GOTO_NUM_THREADS=8' >> /etc/profile.d/benchmark.sh && \
-    echo 'export OMP_NUM_THREADS=8' >> /etc/profile.d/benchmark.sh && \
-    echo 'export FLEXIBLAS_NUM_THREADS=8' >> /etc/profile.d/benchmark.sh && \
-    echo '# Dynamically find and lock the OpenBLAS backend' >> /etc/profile.d/benchmark.sh && \
-    echo 'if command -v flexiblas &> /dev/null; then' >> /etc/profile.d/benchmark.sh && \
-    echo '  export FLEXIBLAS=$(flexiblas list | grep -i openblas | head -n1 | awk "{print \$1}")' >> /etc/profile.d/benchmark.sh && \
-    echo 'fi' >> /etc/profile.d/benchmark.sh
+    echo "export JULIA_DEPOT_PATH=${JULIA_DEPOT_PATH}" >> /etc/profile.d/benchmark.sh && \
+    echo "export JULIA_NUM_THREADS=${JULIA_NUM_THREADS}" >> /etc/profile.d/benchmark.sh && \
+    echo "export OPENBLAS_NUM_THREADS=${OPENBLAS_NUM_THREADS}" >> /etc/profile.d/benchmark.sh && \
+    echo "export FLEXIBLAS_NUM_THREADS=${FLEXIBLAS_NUM_THREADS}" >> /etc/profile.d/benchmark.sh && \
+    echo "export GOTO_NUM_THREADS=${GOTO_NUM_THREADS}" >> /etc/profile.d/benchmark.sh && \
+    echo "export OMP_NUM_THREADS=${OMP_NUM_THREADS}" >> /etc/profile.d/benchmark.sh && \
+    echo "export FLEXIBLAS=${FLEXIBLAS}" >> /etc/profile.d/benchmark.sh && \
+    echo "export PYTHONDONTWRITEBYTECODE=1" >> /etc/profile.d/benchmark.sh && \
+    echo "export GDAL_DISABLE_READDIR_ON_OPEN=EMPTY_DIR" >> /etc/profile.d/benchmark.sh
