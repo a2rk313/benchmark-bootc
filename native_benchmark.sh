@@ -120,30 +120,38 @@ optimize_system() {
 run_native_benchmarks() {
     echo ""
     echo "=========================================================================="
-    echo "Running native benchmarks using system-wide bootc runtimes..."
+    echo "Running native benchmarks with CPU affinity (pinning)..."
     echo "=========================================================================="
     
-    # Ensure we are in the benchmark directory for relative data paths
+    # Ensure we are in the benchmark directory
     cd "$BENCHMARK_DIR"
 
-    # Use a persistent, writable location for results
+    # Persistence location
     RESULTS_BASE="$BENCHMARK_DIR/results/native"
     mkdir -p "$RESULTS_BASE"
     
-    # Ensure environment variables are set for system runtimes
-    export JULIA_DEPOT_PATH="/var/lib/julia/depot"
-    
-    # Dynamic PYTHONPATH detection for robustness
-    PY_VER=$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
-    export PYTHONPATH="/usr/local/lib/python-deps:/usr/lib64/python${PY_VER}/site-packages:$PYTHONPATH"
-    
+    # ACADEMIC RIGOR: Environment Synchronization
+    export JULIA_DEPOT_PATH="/usr/share/julia/depot"
     export JULIA_NUM_THREADS=8
     export OPENBLAS_NUM_THREADS=8
     export FLEXIBLAS_NUM_THREADS=8
     export GOTO_NUM_THREADS=8
     export OMP_NUM_THREADS=8
     
-    # List of benchmark scenarios to run
+    # ACADEMIC RIGOR: CPU Affinity (Pinning)
+    # Attempt to pin to physical cores 0-7 to avoid scheduler noise
+    PIN_CMD=""
+    if command -v numactl &> /dev/null; then
+        CORES=$(nproc)
+        if [ "$CORES" -ge 8 ]; then
+            PIN_CMD="numactl --physcpubind=0-7 --localalloc"
+            echo "    ✓ Affinity: Locked to physical cores 0-7"
+        else
+            PIN_CMD="numactl --physcpubind=0-$((CORES-1)) --localalloc"
+            echo "    ⚠ Affinity: Limited cores ($CORES), locking to all available"
+        fi
+    fi
+
     SCENARIOS=(
         "matrix_ops"
         "raster_algebra"
@@ -164,19 +172,19 @@ run_native_benchmarks() {
         # Python
         if [ -f "benchmarks/${scenario}.py" ]; then
             echo "[Python] Running $scenario..."
-            /usr/bin/time -v python3 "benchmarks/${scenario}.py" > "$RESULTS_BASE/${scenario}_python.json" 2> "$RESULTS_BASE/${scenario}_python_stats.txt" || echo "    ! Python $scenario failed"
+            /usr/bin/time -v $PIN_CMD python3 "benchmarks/${scenario}.py" > "$RESULTS_BASE/${scenario}_python.json" 2> "$RESULTS_BASE/${scenario}_python_stats.txt" || echo "    ! Python $scenario failed"
         fi
         
         # Julia
         if [ -f "benchmarks/${scenario}.jl" ]; then
             echo "[Julia] Running $scenario..."
-            /usr/bin/time -v julia "benchmarks/${scenario}.jl" > "$RESULTS_BASE/${scenario}_julia.json" 2> "$RESULTS_BASE/${scenario}_julia_stats.txt" || echo "    ! Julia $scenario failed"
+            /usr/bin/time -v $PIN_CMD julia "benchmarks/${scenario}.jl" > "$RESULTS_BASE/${scenario}_julia.json" 2> "$RESULTS_BASE/${scenario}_julia_stats.txt" || echo "    ! Julia $scenario failed"
         fi
         
         # R
         if [ -f "benchmarks/${scenario}.R" ]; then
             echo "[R] Running $scenario..."
-            /usr/bin/time -v Rscript "benchmarks/${scenario}.R" > "$RESULTS_BASE/${scenario}_r.json" 2> "$RESULTS_BASE/${scenario}_r_stats.txt" || echo "    ! R $scenario failed"
+            /usr/bin/time -v $PIN_CMD Rscript "benchmarks/${scenario}.R" > "$RESULTS_BASE/${scenario}_r.json" 2> "$RESULTS_BASE/${scenario}_r_stats.txt" || echo "    ! R $scenario failed"
         fi
     done
     
