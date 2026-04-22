@@ -22,7 +22,15 @@ fi
 
 # Clone the benchmark repo
 log "Cloning benchmark-thesis repository..."
+# High Priority: Ensure SSL verification is active
+export GIT_SSL_NO_VERIFY=false
+
 if git clone "$BENCHMARK_REPO" "$BENCHMARK_DIR" 2>&1 | tee -a "$LOG_FILE"; then
+    # High Priority: Validate repository structure
+    if [ ! -d "$BENCHMARK_DIR/.git" ]; then
+        log "ERROR: Git clone seemed to succeed but .git directory is missing!"
+        exit 1
+    fi
     log "Benchmark repo cloned successfully!"
 else
     log "ERROR: Failed to clone benchmark repo"

@@ -146,8 +146,12 @@ run_native_benchmarks() {
     mkdir -p "$RESULTS_BASE"
     
     # Ensure environment variables are set for system runtimes
-    export JULIA_DEPOT_PATH="/usr/share/julia/depot"
-    export PYTHONPATH="/usr/local/lib/python-deps:/usr/lib64/python3.14/site-packages:$PYTHONPATH"
+    export JULIA_DEPOT_PATH="/var/lib/julia/depot"
+    
+    # Dynamic PYTHONPATH detection for robustness
+    PY_VER=$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
+    export PYTHONPATH="/usr/local/lib/python-deps:/usr/lib64/python${PY_VER}/site-packages:$PYTHONPATH"
+    
     export JULIA_NUM_THREADS=8
     export OPENBLAS_NUM_THREADS=8
     export OMP_NUM_THREADS=8

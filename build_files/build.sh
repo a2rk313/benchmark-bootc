@@ -26,13 +26,15 @@ dnf5 install -y --skip-unavailable --setopt=install_weak_deps=False \
     libarrow-devel \
     openmpi-devel \
     pugixml-devel \
-    tiledb-devel
+    tiledb-devel \
+    python3-setuptools python3-wheel
 
 dnf5 clean all
 rm -rf /var/cache/libdnf5/*
 
-echo "=== 2. Installing 'uv' Package Manager ==="
+echo "=== 2. Installing 'uv' Package Manager (Pinned v0.6.4) ==="
 ARCH=$(uname -m)
+UV_VERSION="0.6.4"
 if [ "$ARCH" = "x86_64" ]; then
     UV_ARCH="x86_64-unknown-linux-gnu"
 elif [ "$ARCH" = "aarch64" ]; then
@@ -42,12 +44,13 @@ else
     exit 1
 fi
 
-curl -LsSf "https://github.com/astral-sh/uv/releases/latest/download/uv-${UV_ARCH}.tar.gz" | tar -xz -C /usr/bin --strip-components=1 "uv-${UV_ARCH}/uv" "uv-${UV_ARCH}/uvx"
+curl -LsSf "https://github.com/astral-sh/uv/releases/download/${UV_VERSION}/uv-${UV_ARCH}.tar.gz" | tar -xz -C /usr/bin --strip-components=1 "uv-${UV_ARCH}/uv" "uv-${UV_ARCH}/uvx"
 
 echo "=== 3. Installing Python Dependencies ==="
 export UV_CACHE_DIR="/tmp/uv-cache"
 # Use --no-build-isolation to avoid pip trying to build dependencies separately
 uv pip install --system --prefix=/usr --no-cache --no-build-isolation \
+    setuptools wheel \
     numpy scipy pandas matplotlib seaborn scikit-learn \
     shapely pyproj fiona rasterio geopandas rioxarray xarray \
     psutil tqdm h5py \
@@ -88,9 +91,19 @@ fi
 Rscript -e "install.packages(c('terra', 'sf', 'data.table', 'R.matlab', 'FNN', 'jsonlite', 'digest'), lib='/usr/lib64/R/library', repos='https://cloud.r-project.org/', Ncpus=parallel::detectCores(), clean=TRUE)"
 
 echo "=== 6. Pre-installing Julia packages globally ==="
-export JULIA_DEPOT_PATH="/usr/share/julia/depot"
+# Move Julia depot to /var/lib/julia/depot for bootc persistence
+export JULIA_DEPOT_PATH="/var/lib/julia/depot"
 export JULIA_NUM_THREADS=1  # Single thread for build stability
 mkdir -p "$JULIA_DEPOT_PATH"
+# Symlink for standard location visibility
+mkdir -p /usr/share/julia
+ln -sf "$JULIA_DEPOT_PATH" /usr/share/julia/depot
+
+# High Priority: Add memory check before precompilation
+TOTAL_MEM=$(free -m | awk '/^Mem:/{print $2}')
+if [ "$TOTAL_MEM" -lt 4000 ]; then
+    echo "⚠ WARNING: Less than 4GB RAM detected ($TOTAL_MEM MB). Julia precompilation may fail."
+fi
 
 # Install packages with error handling and retry logic
 echo "Installing Julia packages (with retry logic)..."
