@@ -68,11 +68,6 @@ RUN dnf5 install -y --skip-unavailable --setopt=install_weak_deps=False \
     numactl kernel-tools flexiblas && \
     dnf5 clean all
 
-# EXPLICIT BLAS PINNING: Force OpenBLAS backend
-RUN if command -v flexiblas &> /dev/null; then \
-        flexiblas default OPENBLAS || flexiblas default OPENBLAS64_; \
-    fi
-
 # Copy built artifacts from the builder stage
 COPY --from=builder /opt/R-deps /usr/lib64/R/library
 COPY --from=builder /opt/julia /usr/lib/julia
@@ -87,10 +82,16 @@ RUN ln -s /usr/lib/julia/bin/julia /usr/bin/julia && \
 RUN mkdir -p /var/benchmarks && ln -s /var/benchmarks /benchmarks && \
     ln -sf /benchmarks/data /data
 
-# Persistent thread configuration
-RUN echo "export JULIA_DEPOT_PATH=/usr/share/julia/depot" >> /etc/profile.d/benchmark.sh && \
-    echo "export OPENBLAS_NUM_THREADS=8" >> /etc/profile.d/benchmark.sh && \
-    echo "export FLEXIBLAS_NUM_THREADS=8" >> /etc/profile.d/benchmark.sh && \
-    echo "export GOTO_NUM_THREADS=8" >> /etc/profile.d/benchmark.sh && \
-    echo "export OMP_NUM_THREADS=8" >> /etc/profile.d/benchmark.sh && \
-    echo "export JULIA_NUM_THREADS=8" >> /etc/profile.d/benchmark.sh
+# ACADEMIC RIGOR: Dynamic Runtime Fairness
+# We resolve the FlexiBLAS backend and set all thread counts at login
+RUN echo '# Benchmark Environment Initialization' > /etc/profile.d/benchmark.sh && \
+    echo 'export JULIA_DEPOT_PATH=/usr/share/julia/depot' >> /etc/profile.d/benchmark.sh && \
+    echo 'export JULIA_NUM_THREADS=8' >> /etc/profile.d/benchmark.sh && \
+    echo 'export OPENBLAS_NUM_THREADS=8' >> /etc/profile.d/benchmark.sh && \
+    echo 'export GOTO_NUM_THREADS=8' >> /etc/profile.d/benchmark.sh && \
+    echo 'export OMP_NUM_THREADS=8' >> /etc/profile.d/benchmark.sh && \
+    echo 'export FLEXIBLAS_NUM_THREADS=8' >> /etc/profile.d/benchmark.sh && \
+    echo '# Dynamically find and lock the OpenBLAS backend' >> /etc/profile.d/benchmark.sh && \
+    echo 'if command -v flexiblas &> /dev/null; then' >> /etc/profile.d/benchmark.sh && \
+    echo '  export FLEXIBLAS=$(flexiblas list | grep -i openblas | head -n1 | awk "{print \$1}")' >> /etc/profile.d/benchmark.sh && \
+    echo 'fi' >> /etc/profile.d/benchmark.sh
