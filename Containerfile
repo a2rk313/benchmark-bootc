@@ -3,7 +3,7 @@
 # ==============================================================================
 
 # ==============================================================================
-# STAGE 1: THE HEAVY BUILDER
+# STAGE 1: THE HEAVY BUILDER (R & Julia only)
 # ==============================================================================
 FROM registry.fedoraproject.org/fedora:43 AS builder
 
@@ -16,21 +16,6 @@ RUN dnf5 install -y \
     hdf5-devel fftw-devel openblas-devel sqlite-devel \
     libtiff-devel libjpeg-turbo-devel spatialindex-devel udunits2-devel gsl-devel \
     flexiblas-devel
-
-# Install uv (pinned v0.6.4 for reproducibility)
-RUN curl -LsSf https://github.com/astral-sh/uv/releases/download/0.6.4/uv-x86_64-unknown-linux-gnu.tar.gz | \
-    tar -xz -C /usr/bin --strip-components=1 "uv-x86_64-unknown-linux-gnu/uv" "uv-x86_64-unknown-linux-gnu/uvx"
-
-# Build Python packages
-# We explicitly install setuptools, wheel, and Cython because some packages (fiona, rasterio)
-# may need to build from source on Python 3.14 if wheels are not yet available.
-RUN uv pip install --system --python 3.14 --target=/opt/python-deps \
-    setuptools wheel Cython && \
-    uv pip install --system --python 3.14 --target=/opt/python-deps \
-    "numpy>=2.2" "scipy>=1.15" "pandas>=2.2" "matplotlib>=3.9" \
-    "seaborn>=0.13" "scikit-learn>=1.6" "shapely>=2.0" "pyproj>=3.6" \
-    "fiona>=1.10" "rasterio>=1.4" "geopandas>=1.0" "rioxarray>=0.18" \
-    "xarray>=2024.1" "psutil>=6.0" "tqdm>=4.66" "h5py>=3.11"
 
 # Install R dependencies
 RUN mkdir -p /opt/R-deps && \
@@ -54,7 +39,7 @@ RUN rm -rf /opt/julia-depot/scratchspaces/* /opt/julia-depot/logs/* && \
     julia -e 'using Pkg, Dates; Pkg.gc(collect_delay=Day(0))'
 
 # ==============================================================================
-# STAGE 2: THE FINAL OS
+# STAGE 2: THE FINAL OS (Native Python Packages)
 # ==============================================================================
 FROM quay.io/fedora/fedora-kinoite:43
 
@@ -66,12 +51,15 @@ ENV JULIA_NUM_THREADS=8 \
     OMP_NUM_THREADS=8 \
     PYTHONUNBUFFERED=1 \
     JULIA_DEPOT_PATH="/var/lib/julia/depot" \
-    PYTHONPATH="/usr/local/lib/python-deps" \
     PATH="/usr/lib/julia/bin:$PATH"
 
-# Install runtime dependencies and bootloader tools
+# Install native Python packages and runtime dependencies
 RUN dnf5 install -y --skip-unavailable --setopt=install_weak_deps=False \
-    python3 R-core gdal proj geos hdf5 fftw openblas udunits2 gsl \
+    python3 uv \
+    python3-numpy python3-scipy python3-pandas python3-matplotlib python3-seaborn \
+    python3-scikit-learn python3-shapely python3-pyproj python3-fiona python3-rasterio \
+    python3-geopandas python3-xarray python3-h5py python3-tqdm python3-psutil \
+    R-core gdal proj geos hdf5 fftw openblas udunits2 gsl \
     time hyperfine git \
     grub2-common grub2-efi-x64 shim-x64 efibootmgr \
     numactl kernel-tools flexiblas && \
@@ -84,7 +72,6 @@ RUN if command -v flexiblas &> /dev/null; then \
     fi
 
 # Copy built artifacts from the builder stage
-COPY --from=builder /opt/python-deps /usr/local/lib/python-deps
 COPY --from=builder /opt/R-deps /usr/lib64/R/library
 COPY --from=builder /opt/julia /usr/lib/julia
 COPY --from=builder /opt/julia-depot /var/lib/julia/depot
@@ -95,28 +82,25 @@ RUN ln -sf /usr/bin/python3 /usr/bin/python3 && \
     mkdir -p /usr/share/julia && \
     ln -sf /var/lib/julia/depot /usr/share/julia/depot
 
-# Copy orchestrators and systemd units
-COPY ./firstboot/first-boot-setup.sh /usr/local/bin/first-boot-setup.sh
-COPY ./firstboot/benchmark-firstboot.service /etc/systemd/system/benchmark-firstboot.service
+# Copy orchestrators and scripts
+COPY ./firstboot/setup-benchmarks.sh /usr/local/bin/setup-benchmarks.sh
 COPY ./firstboot/toggle_gui.sh /usr/local/bin/toggle_gui.sh
 COPY ./native_benchmark.sh /usr/local/bin/native_benchmark.sh
 COPY ./native_helper.sh /usr/local/bin/native_helper.sh
 
 # Final OS configuration
 RUN touch /etc/benchmark-bootc-release && \
-    chmod +x /usr/local/bin/first-boot-setup.sh && \
+    chmod +x /usr/local/bin/setup-benchmarks.sh && \
     chmod +x /usr/local/bin/toggle_gui.sh && \
     chmod +x /usr/local/bin/native_benchmark.sh && \
-    chmod +x /usr/local/bin/native_helper.sh && \
-    systemctl enable benchmark-firstboot.service
+    chmod +x /usr/local/bin/native_helper.sh
 
 # Setup writable benchmark partition (contains data/ folder)
 RUN mkdir -p /var/benchmarks && ln -s /var/benchmarks /benchmarks && \
     ln -sf /benchmarks/data /data
 
 # Ensure all thread vars and paths survive into login shells
-RUN echo "export PYTHONPATH=/usr/local/lib/python-deps:\$PYTHONPATH" >> /etc/profile.d/benchmark.sh && \
-    echo "export JULIA_DEPOT_PATH=/var/lib/julia/depot"            >> /etc/profile.d/benchmark.sh && \
+RUN echo "export JULIA_DEPOT_PATH=/var/lib/julia/depot"            >> /etc/profile.d/benchmark.sh && \
     echo "export OPENBLAS_NUM_THREADS=8"                             >> /etc/profile.d/benchmark.sh && \
     echo "export FLEXIBLAS_NUM_THREADS=8"                            >> /etc/profile.d/benchmark.sh && \
     echo "export GOTO_NUM_THREADS=8"                                 >> /etc/profile.d/benchmark.sh && \

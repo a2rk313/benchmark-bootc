@@ -5,13 +5,13 @@ All notable changes to the `benchmark-bootc` project will be documented in this 
 ## [Unreleased] - 2026-04-21
 
 ### Added
-- **Repository Validation**: `first-boot-setup.sh` now validates the repository structure after cloning.
-- **Memory Safety**: Added a memory check in the builder stage before memory-intensive Julia precompilation.
-- **Robust Pathing**: Implemented dynamic `PYTHONPATH` detection in `native_benchmark.sh` to handle Python version changes.
-- **Data Safety**: Added file existence checks to `hsi_stream.jl` and `zonal_stats.R` to prevent runtime crashes.
-- **GUI & Headless Dual-Mode**: Switched base image to `fedora-kinoite:43` (KDE Plasma) to support GUI benchmarking.
-- **Toggle Script**: Added `toggle_gui.sh --headless` and `toggle_gui.sh --gui` to easily switch between Desktop and Server modes on the same image.
-- **Desktop Tax Analysis**: `native_benchmark.sh` now automatically detects and logs whether it is running in a Graphical or Multi-user environment.
+- **Manual Setup Utility**: Replaced the automated first-boot service with a user-friendly `setup-benchmarks.sh` script for full visibility and control over the environment initialization.
+- **Repository Structure Validation**: `setup-benchmarks.sh` now validates the repository and data structure interactively.
+
+### Changed
+- **Architectural Simplification**: Completely refactored the Python environment to use pre-compiled **native Fedora RPM packages** instead of source-building via `uv`. This eliminates compilation errors and ensures maximum runtime stability.
+- **Removed Automation**: Deleted the `benchmark-firstboot.service` to prevent background "magic" failures and provide a more standard appliance experience.
+- **Robust Pathing**: Simplified `PYTHONPATH` and `JULIA_DEPOT_PATH` logic to rely on system-standard locations where possible.
 
 ### Changed
 - **Architectural Refactor**: Reinstated the robust **multi-stage build** in `Containerfile`. This isolates the heavy compilation (Stage 1) from the final lean OS (Stage 2), ensuring build-time dependencies like `Cython` and `setuptools` do not pollute the final image while resolving source-build errors for `fiona`.

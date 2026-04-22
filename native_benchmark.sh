@@ -31,41 +31,26 @@ ensure_benchmarks() {
         echo "    ✓ Benchmark repo found at $BENCHMARK_DIR"
         cd "$BENCHMARK_DIR"
         return 0
+    else
+        echo "    ✗ ERROR: Benchmark repository not found in $BENCHMARK_DIR"
+        echo "      Please run 'sudo setup-benchmarks.sh' first to initialize the environment."
+        exit 1
     fi
-    
-    echo "    → Benchmark repo not found, cloning..."
-    git clone "$REPO_URL" "$BENCHMARK_DIR"
-    cd "$BENCHMARK_DIR"
-    
-    # Download data
-    if [ -f "tools/download_data.py" ]; then
-        echo "    → Downloading benchmark data..."
-        python3 tools/download_data.py --all --synthetic || true
-    fi
-    
-    echo "    ✓ Benchmark repo cloned and ready"
 }
 
-# 1. DOWNLOAD DATA IF NOT PRESENT
-download_data() {
+# 1. CHECK DATA
+check_data() {
     echo ""
     echo "[1/5] Checking benchmark data..."
-    
-    if [ -d "$DATA_DIR" ] && [ -n "$(ls -A "$DATA_DIR" 2>/dev/null)" ]; then
-        echo "    ✓ Data found in $DATA_DIR"
-        return 0
-    fi
     
     if [ -d "$BENCHMARK_DIR/data" ] && [ -n "$(ls -A "$BENCHMARK_DIR/data" 2>/dev/null)" ]; then
         echo "    ✓ Data found in $BENCHMARK_DIR/data"
         return 0
+    else
+        echo "    ✗ ERROR: Benchmark data not found."
+        echo "      Please run 'sudo setup-benchmarks.sh' to download required datasets."
+        exit 1
     fi
-    
-    echo "    → Data not found, downloading..."
-    if [ -f "$BENCHMARK_DIR/tools/download_data.py" ]; then
-        python3 "$BENCHMARK_DIR/tools/download_data.py" --all --synthetic || true
-    fi
-    echo "    ✓ Data ready"
 }
 
 # 2. PYTHON NATIVE CHECK
@@ -212,7 +197,7 @@ restore_system() {
 # MAIN EXECUTION
 main() {
     ensure_benchmarks
-    download_data
+    check_data
     check_python_native
     check_julia_native
     check_r_native
