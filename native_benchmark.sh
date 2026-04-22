@@ -139,6 +139,8 @@ run_native_benchmarks() {
     
     export JULIA_NUM_THREADS=8
     export OPENBLAS_NUM_THREADS=8
+    export FLEXIBLAS_NUM_THREADS=8
+    export GOTO_NUM_THREADS=8
     export OMP_NUM_THREADS=8
     
     # List of benchmark scenarios to run
