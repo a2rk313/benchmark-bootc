@@ -1,29 +1,21 @@
 # benchmark-bootc
 
-Custom bootable OS (bootc) for thesis benchmarking: Julia vs Python vs R for GIS/Remote Sensing workflows.
+Custom bootable OS (bootc) for thesis benchmarking. This repository provides the **Infrastructure (OS Appliance)**, while the benchmarking logic and datasets reside in the [benchmark-thesis](https://github.com/a2rk313/benchmark-thesis.git) repository.
 
 ## Architecture
 
-This project uses a **Split-Repository Design** for maximum flexibility:
+This project uses a **Strict Decoupling Design** for maximum agility:
 
-| Repository | Purpose | Size |
-|------------|---------|------|
-| `benchmark-bootc` | Immutable OS with language runtimes | ~6-8 GB |
-| `benchmark-thesis` | Benchmark scripts and datasets | Downloaded at first boot |
+| Layer | Repository | Responsibility |
+| :--- | :--- | :--- |
+| **Appliance** | `benchmark-bootc` | OS, Julia/R/Python runtimes, Geospatial C++ libs, BLAS synchronization. |
+| **Logic** | `benchmark-thesis` | Orchestration scripts, benchmark algorithms, validation, and datasets. |
 
-### Why Split Design?
+### Why Strict Decoupling?
 
-- **Immutable OS**: Rebuilt only when dependencies change (20-30 min build)
-- **Dynamic Code**: Updated instantly via git pull
-- **Scientific Rigor**: Zero container/virtualization overhead for accurate timing
-
-## What's Included in the OS
-
-- **Julia 1.12.x** → Precompiled AOT spatial packages
-- **Python 3.x** via uv → NumPy, SciPy, GeoPandas, Rasterio
-- **R 4.5.x** → terra, sf, data.table
-- **GIS Libraries**: GDAL, PROJ, GEOS, HDF5, FFTW, OpenBLAS
-- **Benchmarking Tools**: hyperfine, time
+- **Fast Iteration**: Modify benchmark scripts and pull changes instantly without rebuilding the 8GB OS image.
+- **Pure Environment**: The OS is a "clean-room" appliance with zero background noise from development tools.
+- **Scientific Rigor**: Runtimes are locked and tuned in the appliance layer; logic is updated in the research layer.
 
 ## Quick Start
 
@@ -37,75 +29,58 @@ reboot
 
 # Option B: Update an existing deployment
 sudo rpm-ostree upgrade
-# Or specifically by deployment index if multiple are present
-# sudo rpm-ostree upgrade [index]
 sudo reboot
-
-# Option C: Build VM locally
-just build-qcow2
 ```
 
-### 2. First Boot (Automatic)
+### 2. Initialize Benchmarking Environment
 
-The system automatically:
-1. Clones `benchmark-thesis` to `/benchmarks`
-2. Downloads datasets to `/benchmarks/data`
-3. Installs benchmarks into your $PATH
+After booting into the OS, clone the logic repository and run the setup utility:
+
+```bash
+# Clone the logic repository to the writable partition
+git clone https://github.com/a2rk313/benchmark-thesis.git /benchmarks
+
+# Run the setup script (interactive)
+cd /benchmarks
+sudo ./setup-benchmarks.sh
+```
 
 ### 3. Run Benchmarks
 
 ```bash
-# Quick benchmark (matrix operations)
-native_benchmark.sh
-
-# Full suite
-cd /benchmarks && ./run_benchmarks.sh --native-only
+# Use the optimized native runner from inside the benchmarks repo
+./native_benchmark.sh
 ```
+
+## What's Included in the OS Appliance
+
+- **Julia 1.12.6** → Precompiled AOT spatial packages (ArchGDAL, GeoDataFrames)
+- **Python 3.14.x** → Native Fedora RPMs (NumPy 2.x, SciPy, GeoPandas)
+- **R 4.5.x** → Native RPMs + optimized geospatial packages
+- **BLAS Synchronization**: Force-pinned OpenBLAS backend via FlexiBLAS
+- **System Tuning**: `numactl` and `cpupower` for CPU affinity and governor control
 
 ## Repository Structure
 
 ```
 benchmark-bootc/
-├── Containerfile              # bootc OS definition
-├── build_files/
-│   └── build.sh              # Package installation (Julia, Python, R, GIS)
-├── firstboot/
-│   ├── first-boot-setup.sh   # Clones benchmark-thesis
-│   └── benchmark-firstboot.service  # Systemd unit
-├── native_benchmark.sh        # Benchmark orchestrator
-├── Justfile                  # VM build commands
-├── docs/
-│   └── APPROACH_BENCHMARKING.md  # Full architecture docs
-└── AGENTS.md                # Agent/internals documentation
+├── Containerfile              # Appliance definition (Multi-stage)
+├── build_files/               # Legacy build logic (referenced by Containerfile)
+├── disk_config/               # BIB configurations for ISO/QCOW2
+├── docs/                      # Architectural documentation
+└── CHANGELOG.md               # Version history
 ```
 
 ## For Thesis
 
-This OS ensures **scientifically rigorous** benchmarking:
+This framework ensures **scientifically rigorous** benchmarking:
 
 | Requirement | Implementation |
 |-------------|----------------|
 | Bare-metal execution | bootc → direct hardware |
-| No container overhead | Native execution |
+| Variance Control | CPU Affinity (numactl) + Performance Governor |
 | Statistical validity | min(t) of 30 runs (Chen & Revels 2016) |
-| Reproducibility | Immutable OS + pinned versions |
-| AOT compilation | Julia packages precompiled |
-
-### Image Size Optimization
-
-| Technique | Savings |
-|-----------|--------|
-| Weak deps disabled | ~4 GB |
-| Aggressive cache purge | ~1 GB |
-| No benchmarks in image | ~2 GB |
-
-**Result**: 6-8 GB image (vs original 13 GB)
-
-## Community
-
-- [Universal Blue Forums](https://universal-blue.discourse.group/)
-- [Universal Blue Discord](https://discord.gg/WEu6BdFEtp)
-- [bootc discussions](https://github.com/bootc-dev/bootc/discussions)
+| Reproducibility | Immutable OS + Unified BLAS environment |
 
 ## Documentation
 

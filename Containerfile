@@ -42,7 +42,7 @@ RUN mkdir -p /opt/R-deps && \
     Rscript -e "install.packages(c('terra', 'sf', 'data.table', 'R.matlab', 'FNN', 'jsonlite', 'digest'), lib='/opt/R-deps', repos='https://cloud.r-project.org/', Ncpus=parallel::detectCores())"
 
 # ==============================================================================
-# STAGE 2: THE FINAL OS
+# STAGE 2: THE FINAL OS (Appliance Only)
 # ==============================================================================
 FROM quay.io/fedora/fedora-kinoite:43
 
@@ -56,7 +56,7 @@ ENV JULIA_NUM_THREADS=8 \
     JULIA_DEPOT_PATH="/usr/share/julia/depot" \
     PATH="/usr/lib/julia/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 
-# Install runtime dependencies and benchmark tools
+# Install native runtime dependencies and tools
 RUN dnf5 install -y --skip-unavailable --setopt=install_weak_deps=False \
     python3 uv \
     python3-numpy python3-scipy python3-pandas python3-matplotlib python3-seaborn \
@@ -68,7 +68,7 @@ RUN dnf5 install -y --skip-unavailable --setopt=install_weak_deps=False \
     numactl kernel-tools flexiblas && \
     dnf5 clean all
 
-# EXPLICIT BLAS PINNING: Force OpenBLAS backend (no auto-detection)
+# EXPLICIT BLAS PINNING: Force OpenBLAS backend
 RUN if command -v flexiblas &> /dev/null; then \
         flexiblas default OPENBLAS || flexiblas default OPENBLAS64_; \
     fi
@@ -83,14 +83,7 @@ RUN ln -s /usr/lib/julia/bin/julia /usr/bin/julia && \
     chmod -R 755 /usr/share/julia/depot && \
     touch /etc/benchmark-bootc-release
 
-# Copy orchestrators and scripts
-COPY ./firstboot/setup-benchmarks.sh /usr/bin/setup-benchmarks.sh
-COPY ./firstboot/toggle_gui.sh /usr/bin/toggle_gui.sh
-COPY ./native_benchmark.sh /usr/bin/native_benchmark.sh
-COPY ./native_helper.sh /usr/bin/native_helper.sh
-RUN chmod +x /usr/bin/setup-benchmarks.sh /usr/bin/toggle_gui.sh /usr/bin/native_*.sh
-
-# Setup writable benchmark partition
+# Setup writable benchmark and data partitions
 RUN mkdir -p /var/benchmarks && ln -s /var/benchmarks /benchmarks && \
     ln -sf /benchmarks/data /data
 
