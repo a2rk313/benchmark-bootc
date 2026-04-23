@@ -1,0 +1,25 @@
+{
+  "benchmark": "real_modis_timeseries",
+  "data_source": "synthetic",
+  "data_shape": [
+    23,
+    240,
+    240
+  ],
+  "data_size_mb": 5.0537109375,
+  "n_runs": 5,
+  "min_time": 0.012225917000250774,
+  "mean_time": 0.014086966600007144,
+  "std_time": 0.0024980833450511807,
+  "median_time": 0.012514086999999563,
+  "cv": 0.17733295009373515,
+  "mean_ndvi": 0.11392653733491898,
+  "mean_trend": -0.0031062567497392064,
+  "mean_amplitude": 0.2655241787433624,
+  "spatial_stats": {
+    "spatial_mean_mean": 0.11392653733491898,
+    "spatial_std_mean": 0.13294219970703125,
+    "spatial_heterogeneity": 0.06496402621269226
+  },
+  "validation_hash": "0cf1a6eb67935005"
+}
