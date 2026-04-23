@@ -65,7 +65,7 @@ ENV JULIA_NUM_THREADS=8 \
 
 # Install native runtime dependencies and tools
 RUN dnf5 install -y --skip-unavailable --setopt=install_weak_deps=False \
-    python3 uv \
+    python3 \
     python3-numpy python3-scipy python3-pandas python3-matplotlib python3-seaborn \
     python3-scikit-learn python3-shapely python3-pyproj python3-fiona python3-rasterio \
     python3-geopandas python3-xarray python3-h5py python3-tqdm python3-psutil \
