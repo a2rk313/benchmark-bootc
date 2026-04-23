@@ -34,8 +34,8 @@ This repository contains the **Research Logic**. It is decoupled from the OS ima
 ### 2.3. The Interface: Manual Initialization
 
 Users boot the immutable appliance and then initialize the logic layer:
-1. **Clone**: `git clone https://github.com/a2rk313/benchmark-thesis.git /benchmarks`
-2. **Setup**: `cd /benchmarks && sudo ./setup-benchmarks.sh`
+1. **Clone**: `git clone https://github.com/a2rk313/benchmark-thesis.git ~/benchmark-thesis`
+2. **Setup**: `cd ~/benchmark-thesis && sudo ./setup-benchmarks.sh`
 3. **Execute**: `./native_benchmark.sh`
 
 ---
@@ -46,10 +46,9 @@ The appliance is built on Fedora Kinoite, utilizing the bootc standard for OCI-n
 
 ### 3.1. Immutable Filesystem Management
 
-In bootc systems, `/usr` is mounted as a read-only filesystem. To ensure research data survives updates and reboots, the appliance uses a dedicated writable partition:
-- `/var/benchmarks` is created during the build.
-- `/benchmarks` is symlinked to this writable location.
-- `/data` is symlinked to `/benchmarks/data` for path consistency.
+In bootc systems, `/usr` is mounted as a read-only filesystem. To ensure research data and code survive updates and reboots, users should clone the logic repository into a writable directory within the `/var` partition (such as the user's home directory).
+
+The previous architecture utilized hardcoded symlinks at `/benchmarks` and `/data`. To improve flexibility and portability, the system has been decoupled; benchmark scripts now utilize dynamic relative path resolution to locate data regardless of their absolute position on the disk.
 
 ### 3.2. Julia Depot Optimization
 

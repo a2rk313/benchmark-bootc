@@ -91,13 +91,10 @@ fi
 Rscript -e "install.packages(c('terra', 'sf', 'data.table', 'R.matlab', 'FNN', 'jsonlite', 'digest'), lib='/usr/lib64/R/library', repos='https://cloud.r-project.org/', Ncpus=parallel::detectCores(), clean=TRUE)"
 
 echo "=== 6. Pre-installing Julia packages globally ==="
-# Move Julia depot to /var/lib/julia/depot for bootc persistence
-export JULIA_DEPOT_PATH="/var/lib/julia/depot"
+# Move Julia depot to /usr/share/julia/depot for standard OS visibility
+export JULIA_DEPOT_PATH="/usr/share/julia/depot"
 export JULIA_NUM_THREADS=1  # Single thread for build stability
 mkdir -p "$JULIA_DEPOT_PATH"
-# Symlink for standard location visibility
-mkdir -p /usr/share/julia
-ln -sf "$JULIA_DEPOT_PATH" /usr/share/julia/depot
 
 # High Priority: Add memory check before precompilation
 TOTAL_MEM=$(free -m | awk '/^Mem:/{print $2}')

@@ -44,12 +44,11 @@ just build-qcow2
 - **GIS Libraries**: GDAL, PROJ, GEOS, HDF5, FFTW, OpenBLAS
 - **Benchmarking**: hyperfine, time
 
-### First-Boot Behavior
+### Initialization Behavior
 
-1. Systemd service `benchmark-firstboot.service` triggers after network is online
-2. Clones `https://github.com/a2rk313/benchmark-thesis.git` to `/benchmarks`
-3. Downloads datasets to `/benchmarks/data`
-4. Symlinks orchestrators to `/usr/local/bin`
+1. User boots into the OS appliance.
+2. User clones `https://github.com/a2rk313/benchmark-thesis.git` to a local directory (e.g., `~/benchmark-thesis`).
+3. User runs `sudo ./setup-benchmarks.sh` inside the cloned directory to initialize the environment.
 
 ---
 
@@ -87,10 +86,10 @@ Contains all benchmark implementations, tools, and validation scripts.
 ./run_benchmarks.sh
 
 # Native on bootc OS
-native_benchmark.sh
+./native_benchmark.sh
 
-# Or after first-boot setup
-cd /benchmarks && ./run_benchmarks.sh --native-only
+# Or after manual setup
+cd ~/benchmark-thesis && ./run_benchmarks.sh --native-only
 ```
 
 ---
@@ -101,7 +100,7 @@ cd /benchmarks && ./run_benchmarks.sh --native-only
 
 Immutable OS (benchmark-bootc) is separate from dynamic code (benchmark-thesis):
 - OS rebuild: 20-30 minutes (only when deps change)
-- Code update: Instant (git pull in /benchmarks)
+- Code update: Instant (git pull in the cloned repository)
 
 ### Bare-Metal vs Container Benchmarking
 

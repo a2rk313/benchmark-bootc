@@ -37,11 +37,11 @@ sudo reboot
 After booting into the OS, clone the logic repository and run the setup utility:
 
 ```bash
-# Clone the logic repository to the writable partition
-git clone https://github.com/a2rk313/benchmark-thesis.git /benchmarks
+# Clone the logic repository to your home directory
+git clone https://github.com/a2rk313/benchmark-thesis.git ~/benchmark-thesis
 
 # Run the setup script (interactive)
-cd /benchmarks
+cd ~/benchmark-thesis
 sudo ./setup-benchmarks.sh
 ```
 

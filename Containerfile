@@ -69,6 +69,7 @@ RUN dnf5 install -y --skip-unavailable --setopt=install_weak_deps=False \
     python3-numpy python3-scipy python3-pandas python3-matplotlib python3-seaborn \
     python3-scikit-learn python3-shapely python3-pyproj python3-fiona python3-rasterio \
     python3-geopandas python3-xarray python3-h5py python3-tqdm python3-psutil \
+    python3-pyarrow \
     R-core gdal proj geos hdf5 fftw openblas udunits2 gsl \
     time hyperfine git \
     grub2-common grub2-efi-x64 shim-x64 efibootmgr \
@@ -84,10 +85,6 @@ COPY --from=builder /usr/share/julia/depot /usr/share/julia/depot
 RUN ln -s /usr/lib/julia/bin/julia /usr/bin/julia && \
     chmod -R 755 /usr/share/julia/depot && \
     touch /etc/benchmark-bootc-release
-
-# Setup writable benchmark and data partitions
-RUN mkdir -p /var/benchmarks && ln -s /var/benchmarks /benchmarks && \
-    ln -sf /benchmarks/data /data
 
 # ACADEMIC RIGOR: Ensure environment survive into login shells
 RUN echo '# Benchmark Environment Initialization' > /etc/profile.d/benchmark.sh && \
