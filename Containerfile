@@ -10,12 +10,23 @@ FROM registry.fedoraproject.org/fedora:43 AS builder
 # Install compilers and development headers
 RUN dnf5 install -y \
     gcc gcc-c++ make cmake git curl wget tar \
+    clang llvm-devel \
     python3 python3-pip python3-devel \
     R-core R-core-devel \
     gdal-devel proj-devel geos-devel \
     hdf5-devel fftw-devel openblas-devel sqlite-devel \
     libtiff-devel libjpeg-turbo-devel spatialindex-devel udunits2-devel gsl-devel \
     flexiblas-devel
+
+# Compile Custom Python 3.14.3 with JIT
+RUN curl -fsSL -O https://www.python.org/ftp/python/3.14.3/Python-3.14.3.tgz && \
+    tar -xzf Python-3.14.3.tgz && \
+    cd Python-3.14.3 && \
+    ./configure --prefix=/opt/python-jit --enable-optimizations --enable-experimental-jit && \
+    make -j$(nproc) && \
+    make altinstall && \
+    ln -s /opt/python-jit/bin/python3.14 /opt/python-jit/bin/python3-jit && \
+    cd .. && rm -rf Python-3.14.3*
 
 # Install Julia 1.12.6
 RUN curl -fsSL "https://julialang-s3.julialang.org/bin/linux/x64/1.12/julia-1.12.6-linux-x86_64.tar.gz" | tar -xz -C /opt && \
@@ -61,7 +72,8 @@ ENV JULIA_NUM_THREADS=8 \
     NPY_BLAS_ORDER=openblas \
     NPY_LAPACK_ORDER=openblas \
     JULIA_DEPOT_PATH="/usr/share/julia/depot" \
-    PATH="/usr/lib/julia/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+    PYTHONPATH="/usr/lib64/python3.14/site-packages:/usr/lib/python3.14/site-packages:/usr/local/lib/python3.14/site-packages:/usr/local/lib64/python3.14/site-packages" \
+    PATH="/opt/python-jit/bin:/usr/lib/julia/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 
 # Install native runtime dependencies and tools
 RUN dnf5 install -y --skip-unavailable --setopt=install_weak_deps=False \
@@ -80,6 +92,7 @@ RUN dnf5 install -y --skip-unavailable --setopt=install_weak_deps=False \
 COPY --from=builder /opt/R-deps /usr/lib64/R/library
 COPY --from=builder /opt/julia /usr/lib/julia
 COPY --from=builder /usr/share/julia/depot /usr/share/julia/depot
+COPY --from=builder /opt/python-jit /opt/python-jit
 
 # Link runtimes and setup release ID
 RUN ln -s /usr/lib/julia/bin/julia /usr/bin/julia && \
@@ -89,6 +102,7 @@ RUN ln -s /usr/lib/julia/bin/julia /usr/bin/julia && \
 # ACADEMIC RIGOR: Ensure environment survive into login shells
 RUN echo '# Benchmark Environment Initialization' > /etc/profile.d/benchmark.sh && \
     echo "export JULIA_DEPOT_PATH=${JULIA_DEPOT_PATH}" >> /etc/profile.d/benchmark.sh && \
+    echo "export PYTHONPATH=${PYTHONPATH}" >> /etc/profile.d/benchmark.sh && \
     echo "export JULIA_NUM_THREADS=${JULIA_NUM_THREADS}" >> /etc/profile.d/benchmark.sh && \
     echo "export OPENBLAS_NUM_THREADS=${OPENBLAS_NUM_THREADS}" >> /etc/profile.d/benchmark.sh && \
     echo "export FLEXIBLAS_NUM_THREADS=${FLEXIBLAS_NUM_THREADS}" >> /etc/profile.d/benchmark.sh && \
