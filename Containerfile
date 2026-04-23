@@ -10,7 +10,7 @@ FROM registry.fedoraproject.org/fedora:43 AS builder
 # Install compilers and development headers
 RUN dnf5 install -y \
     gcc gcc-c++ make cmake git curl wget tar \
-    clang llvm-devel \
+    clang19 clang19-devel llvm19-devel \
     python3 python3-pip python3-devel \
     R-core R-core-devel \
     gdal-devel proj-devel geos-devel \
