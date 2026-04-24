@@ -1,6 +1,8 @@
 # ==============================================================================
 # BARE-METAL GIS BENCHMARKING OS (KINOITE GUI + SERVER)
 # ==============================================================================
+# Version: Python 3.14.4, Julia 1.12.6, R 4.5.3
+# ==============================================================================
 
 # ==============================================================================
 # STAGE 1: THE HEAVY BUILDER
@@ -18,23 +20,22 @@ RUN dnf5 install -y \
     libtiff-devel libjpeg-turbo-devel spatialindex-devel udunits2-devel gsl-devel \
     flexiblas-devel
 
-# Compile Custom Python 3.14.3 with JIT
-RUN curl -fsSL -O https://www.python.org/ftp/python/3.14.3/Python-3.14.3.tgz && \
-    tar -xzf Python-3.14.3.tgz && \
-    cd Python-3.14.3 && \
-    ./configure --prefix=/opt/python-jit --enable-optimizations --enable-experimental-jit && \
-    make -j$(nproc) && \
-    make altinstall && \
-    ln -s /opt/python-jit/bin/python3.14 /opt/python-jit/bin/python3-jit && \
-    cd .. && rm -rf Python-3.14.3*
+# Install uv package manager (for Python 3.14.4)
+RUN curl -LsSf "https://github.com/astral-sh/uv/releases/download/0.6.4/uv-x86_64-unknown-linux-gnu.tar.gz" | \
+    tar -xz -C /usr/bin --strip-components=1 "uv-x86_64-unknown-linux-gnu/uv" "uv-x86_64-unknown-linux-gnu/uvx"
 
-# Install Julia 1.12.6
-RUN curl -fsSL "https://julialang-s3.julialang.org/bin/linux/x64/1.12/julia-1.12.6-linux-x86_64.tar.gz" | tar -xz -C /opt && \
-    mv /opt/julia-* /opt/julia
+# Install Python 3.14.4 via uv (replaces custom JIT compilation)
+RUN uv python install 3.14.4 && \
+    uv python pin 3.14.4
 
-# PATH PARITY: Use the same path in builder as runtime to ensure cache validity
+# Install Julia 1.12.6 to /usr/lib/julia (MATCHES RUNTIME PATH - no cache mismatch)
+RUN curl -fsSL "https://julialang-s3.julialang.org/bin/linux/x64/1.12/julia-1.12.6-linux-x86_64.tar.gz" | \
+    tar -xz -C /usr/lib && \
+    mv /usr/lib/julia-* /usr/lib/julia
+
+# PATH PARITY: Julia at /usr/lib/julia in builder = /usr/lib/julia at runtime
 ENV JULIA_DEPOT_PATH="/usr/share/julia/depot"
-ENV PATH="/opt/julia/bin:$PATH"
+ENV PATH="/usr/lib/julia/bin:$PATH"
 
 RUN mkdir -p /usr/share/julia/depot && \
     julia -e 'using Pkg; Pkg.add(["BenchmarkTools", "CSV", "DataFrames", "SHA", "MAT", "JSON3", "NearestNeighbors", "LibGEOS", "Shapefile", "ArchGDAL", "GeoDataFrames"])' && \
@@ -58,6 +59,7 @@ RUN mkdir -p /opt/R-deps && \
 FROM quay.io/fedora/fedora-kinoite:43
 
 # ACADEMIC RIGOR: High-Performance Benchmarking Environment
+# Split depot path: $HOME/.julia (writable) : /usr/share/julia/depot (read-only baked)
 ENV JULIA_NUM_THREADS=8 \
     OPENBLAS_NUM_THREADS=8 \
     FLEXIBLAS_NUM_THREADS=8 \
@@ -71,9 +73,8 @@ ENV JULIA_NUM_THREADS=8 \
     GDAL_CACHEMAX=512 \
     NPY_BLAS_ORDER=openblas \
     NPY_LAPACK_ORDER=openblas \
-    JULIA_DEPOT_PATH="/usr/share/julia/depot" \
-    PYTHONPATH="/usr/lib64/python3.14/site-packages:/usr/lib/python3.14/site-packages:/usr/local/lib/python3.14/site-packages:/usr/local/lib64/python3.14/site-packages" \
-    PATH="/opt/python-jit/bin:/usr/lib/julia/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+    JULIA_DEPOT_PATH="$HOME/.julia:/usr/share/julia/depot" \
+    PATH="/usr/lib/julia/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 
 # Install native runtime dependencies and tools
 RUN dnf5 install -y --skip-unavailable --setopt=install_weak_deps=False \
@@ -81,7 +82,7 @@ RUN dnf5 install -y --skip-unavailable --setopt=install_weak_deps=False \
     python3-numpy python3-scipy python3-pandas python3-matplotlib python3-seaborn \
     python3-scikit-learn python3-shapely python3-pyproj python3-fiona python3-rasterio \
     python3-geopandas python3-xarray python3-h5py python3-tqdm python3-psutil \
-    python3-pyarrow \
+    python3-pyarrow python3-setuptools python3-wheel \
     R-core gdal proj geos hdf5 fftw openblas udunits2 gsl \
     time hyperfine git \
     grub2-common grub2-efi-x64 shim-x64 efibootmgr \
@@ -90,24 +91,23 @@ RUN dnf5 install -y --skip-unavailable --setopt=install_weak_deps=False \
 
 # Copy built artifacts from the builder stage
 COPY --from=builder /opt/R-deps /usr/lib64/R/library
-COPY --from=builder /opt/julia /usr/lib/julia
+COPY --from=builder /usr/lib/julia /usr/lib/julia
 COPY --from=builder /usr/share/julia/depot /usr/share/julia/depot
-COPY --from=builder /opt/python-jit /opt/python-jit
 
-# Link runtimes and setup release ID
+# Link Julia and setup release ID
 RUN ln -s /usr/lib/julia/bin/julia /usr/bin/julia && \
     chmod -R 755 /usr/share/julia/depot && \
     touch /etc/benchmark-bootc-release
 
-# ACADEMIC RIGOR: Ensure environment survive into login shells
+# ACADEMIC RIGOR: Ensure environment survives into login shells
+# Split depot: $HOME/.julia (writable) : /usr/share/julia/depot (read-only fallback)
 RUN echo '# Benchmark Environment Initialization' > /etc/profile.d/benchmark.sh && \
-    echo "export JULIA_DEPOT_PATH=${JULIA_DEPOT_PATH}" >> /etc/profile.d/benchmark.sh && \
-    echo "export PYTHONPATH=${PYTHONPATH}" >> /etc/profile.d/benchmark.sh && \
-    echo "export JULIA_NUM_THREADS=${JULIA_NUM_THREADS}" >> /etc/profile.d/benchmark.sh && \
-    echo "export OPENBLAS_NUM_THREADS=${OPENBLAS_NUM_THREADS}" >> /etc/profile.d/benchmark.sh && \
-    echo "export FLEXIBLAS_NUM_THREADS=${FLEXIBLAS_NUM_THREADS}" >> /etc/profile.d/benchmark.sh && \
-    echo "export GOTO_NUM_THREADS=${GOTO_NUM_THREADS}" >> /etc/profile.d/benchmark.sh && \
-    echo "export OMP_NUM_THREADS=${OMP_NUM_THREADS}" >> /etc/profile.d/benchmark.sh && \
-    echo "export FLEXIBLAS=${FLEXIBLAS}" >> /etc/profile.d/benchmark.sh && \
-    echo "export PYTHONDONTWRITEBYTECODE=1" >> /etc/profile.d/benchmark.sh && \
-    echo "export GDAL_DISABLE_READDIR_ON_OPEN=EMPTY_DIR" >> /etc/profile.d/benchmark.sh
+    echo 'export JULIA_DEPOT_PATH="$HOME/.julia:/usr/share/julia/depot"' >> /etc/profile.d/benchmark.sh && \
+    echo 'export JULIA_NUM_THREADS=8' >> /etc/profile.d/benchmark.sh && \
+    echo 'export OPENBLAS_NUM_THREADS=8' >> /etc/profile.d/benchmark.sh && \
+    echo 'export FLEXIBLAS_NUM_THREADS=8' >> /etc/profile.d/benchmark.sh && \
+    echo 'export GOTO_NUM_THREADS=8' >> /etc/profile.d/benchmark.sh && \
+    echo 'export OMP_NUM_THREADS=8' >> /etc/profile.d/benchmark.sh && \
+    echo 'export FLEXIBLAS=OPENBLAS-OPENMP' >> /etc/profile.d/benchmark.sh && \
+    echo 'export PYTHONDONTWRITEBYTECODE=1' >> /etc/profile.d/benchmark.sh && \
+    echo 'export GDAL_DISABLE_READDIR_ON_OPEN=EMPTY_DIR' >> /etc/profile.d/benchmark.sh
