@@ -34,9 +34,9 @@ RUN mkdir -p /usr/share/julia/depot && \
     julia -e 'using ArchGDAL, GeoDataFrames, LibGEOS, DataFrames; println("✓ Heavy GIS packages loaded")' && \
     julia -e 'using Pkg; Pkg.precompile()'
 
-# Clean up transient data but KEEP registries, compiled, and artifacts
-RUN rm -rf /usr/share/julia/depot/scratchspaces/* /usr/share/julia/depot/logs/* && \
-    julia -e 'using Pkg, Dates; Pkg.gc(collect_delay=Day(0))'
+# # Clean up transient data but KEEP registries, compiled, and artifacts
+# RUN rm -rf /usr/share/julia/depot/scratchspaces/* /usr/share/julia/depot/logs/* && \
+#     julia -e 'using Pkg, Dates; Pkg.gc(collect_delay=Day(0))'
 
 # Build R dependencies
 RUN mkdir -p /opt/R-deps && \
