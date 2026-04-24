@@ -51,7 +51,8 @@ RUN mkdir -p /opt/R-deps && \
 FROM quay.io/fedora/fedora-kinoite:43
 
 # ACADEMIC RIGOR: High-Performance Benchmarking Environment
-# Split depot path: $HOME/.julia (writable) : /usr/share/julia/depot (read-only baked)
+# Split depot path: /var/lib/julia (writable) : /usr/share/julia/depot (read-only baked)
+# /var is writable at runtime in bootc, avoiding EROFS errors
 ENV JULIA_NUM_THREADS=8 \
     OPENBLAS_NUM_THREADS=8 \
     FLEXIBLAS_NUM_THREADS=8 \
@@ -65,7 +66,7 @@ ENV JULIA_NUM_THREADS=8 \
     GDAL_CACHEMAX=512 \
     NPY_BLAS_ORDER=openblas \
     NPY_LAPACK_ORDER=openblas \
-    JULIA_DEPOT_PATH="$HOME/.julia:/usr/share/julia/depot" \
+    JULIA_DEPOT_PATH="/var/lib/julia:/usr/share/julia/depot" \
     PATH="/usr/lib/julia/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 
 # Install native runtime dependencies and tools via dnf5
@@ -87,15 +88,23 @@ COPY --from=builder /opt/R-deps /usr/lib64/R/library
 COPY --from=builder /usr/lib/julia /usr/lib/julia
 COPY --from=builder /usr/share/julia/depot /usr/share/julia/depot
 
+# Create writable Julia depot in /var (writable at runtime in bootc)
+RUN mkdir -p /var/lib/julia && chmod 755 /var/lib/julia
+
+# Precompile Julia packages in final image to avoid runtime EROFS errors
+# This ensures all packages are precompiled using writable /var/lib/julia
+RUN julia --threads=1 -e 'using Pkg; Pkg.precompile()' && \
+    julia --threads=1 -e 'using BenchmarkTools, CSV, DataFrames, SHA, MAT, JSON3, NearestNeighbors, LibGEOS, Shapefile, ArchGDAL, GeoDataFrames; println("✓ All Julia packages precompiled")'
+
 # Link Julia and setup release ID
 RUN ln -s /usr/lib/julia/bin/julia /usr/bin/julia && \
     chmod -R 755 /usr/share/julia/depot && \
     touch /etc/benchmark-bootc-release
 
 # ACADEMIC RIGOR: Ensure environment survives into login shells
-# Split depot: $HOME/.julia (writable) : /usr/share/julia/depot (read-only fallback)
+# Split depot: /var/lib/julia (writable) : /usr/share/julia/depot (read-only baked)
 RUN echo '# Benchmark Environment Initialization' > /etc/profile.d/benchmark.sh && \
-    echo 'export JULIA_DEPOT_PATH="$HOME/.julia:/usr/share/julia/depot"' >> /etc/profile.d/benchmark.sh && \
+    echo 'export JULIA_DEPOT_PATH="/var/lib/julia:/usr/share/julia/depot"' >> /etc/profile.d/benchmark.sh && \
     echo 'export JULIA_NUM_THREADS=8' >> /etc/profile.d/benchmark.sh && \
     echo 'export OPENBLAS_NUM_THREADS=8' >> /etc/profile.d/benchmark.sh && \
     echo 'export FLEXIBLAS_NUM_THREADS=8' >> /etc/profile.d/benchmark.sh && \
