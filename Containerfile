@@ -5,30 +5,22 @@
 # ==============================================================================
 
 # ==============================================================================
-# STAGE 1: THE HEAVY BUILDER
+# STAGE 1: THE HEAVY BUILDER (Julia packages only)
 # ==============================================================================
 FROM registry.fedoraproject.org/fedora:43 AS builder
 
-# Install compilers and development headers
+# Install compilers and development headers for Julia packages
 RUN dnf5 install -y \
     gcc gcc-c++ make cmake git curl wget tar \
     clang19 clang19-devel llvm19-devel \
-    python3 python3-pip python3-devel \
+    python3 python3-pip \
     R-core R-core-devel \
     gdal-devel proj-devel geos-devel \
     hdf5-devel fftw-devel openblas-devel sqlite-devel \
     libtiff-devel libjpeg-turbo-devel spatialindex-devel udunits2-devel gsl-devel \
     flexiblas-devel
 
-# Install uv package manager (for Python 3.14.4)
-RUN curl -LsSf "https://github.com/astral-sh/uv/releases/download/0.6.4/uv-x86_64-unknown-linux-gnu.tar.gz" | \
-    tar -xz -C /usr/bin --strip-components=1 "uv-x86_64-unknown-linux-gnu/uv" "uv-x86_64-unknown-linux-gnu/uvx"
-
-# Install Python 3.14.4 via uv (replaces custom JIT compilation)
-RUN uv python install 3.14.4 && \
-    uv python pin 3.14.4
-
-# Install Julia 1.12.6 to /usr/lib/julia (MATCHES RUNTIME PATH - no cache mismatch)
+# Install Julia 1.12.6 to /usr/lib/julia (MATCHES RUNTIME PATH)
 RUN curl -fsSL "https://julialang-s3.julialang.org/bin/linux/x64/1.12/julia-1.12.6-linux-x86_64.tar.gz" | \
     tar -xz -C /usr/lib && \
     mv /usr/lib/julia-* /usr/lib/julia
@@ -76,7 +68,8 @@ ENV JULIA_NUM_THREADS=8 \
     JULIA_DEPOT_PATH="$HOME/.julia:/usr/share/julia/depot" \
     PATH="/usr/lib/julia/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 
-# Install native runtime dependencies and tools
+# Install native runtime dependencies and tools via dnf5
+# Python 3.14.4 comes from Fedora 43 rawhide
 RUN dnf5 install -y --skip-unavailable --setopt=install_weak_deps=False \
     python3 \
     python3-numpy python3-scipy python3-pandas python3-matplotlib python3-seaborn \
