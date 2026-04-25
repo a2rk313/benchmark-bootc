@@ -103,8 +103,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            ${{ steps.build.outputs.output-directory }}/anaconda-iso.iso
-            ${{ steps.build.outputs.output-directory }}/disk.qcow2
+            ${{ steps.build.outputs.output-directory }}/**/*
           name: "bootc-image-${{ env.DEFAULT_TAG }}-${{ github.sha }}"
           tag_name: "v-${{ github.sha }}"
           draft: true
