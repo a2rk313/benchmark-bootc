@@ -42,7 +42,7 @@ jobs:
       matrix:
         disk-type: ["qcow2", "anaconda-iso"]
     permissions:
-      contents: read
+      contents: write
       packages: read
       id-token: write
 
@@ -105,7 +105,6 @@ jobs:
           files: |
             ${{ steps.build.outputs.output-directory }}/*
           name: "bootc-image-${{ env.DEFAULT_TAG }}-${{ github.sha }}"
-          generate_release_notes: true
           tag_name: "v-${{ github.sha }}"
           draft: true
         env:
