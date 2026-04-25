@@ -86,7 +86,7 @@ jobs:
           image: ${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.DEFAULT_TAG }}
           chown: ${{ env.USER_UID }}:${{ env.USER_GID }}
           types: ${{ matrix.disk-type }}
-          rootfs: "${{ matrix.disk-type == 'anaconda-iso' && 'ext4' || '' }}"
+          rootfs: ${{ matrix.disk-type == 'anaconda-iso' && 'ext4' || 'btrfs' }}
 
       - name: Upload disk images and Checksum to Job Artifacts
         if: inputs.upload-to-s3 != true && github.event_name != 'pull_request'
@@ -103,7 +103,8 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            ${{ steps.build.outputs.output-directory }}/*
+            ${{ steps.build.outputs.output-directory }}/anaconda-iso.iso
+            ${{ steps.build.outputs.output-directory }}/disk.qcow2
           name: "bootc-image-${{ env.DEFAULT_TAG }}-${{ github.sha }}"
           tag_name: "v-${{ github.sha }}"
           draft: true
