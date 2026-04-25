@@ -106,6 +106,8 @@ jobs:
             ${{ steps.build.outputs.output-directory }}/*
           name: "bootc-image-${{ env.DEFAULT_TAG }}-${{ github.sha }}"
           generate_release_notes: true
+          tag_name: "v-${{ github.sha }}"
+          draft: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       
