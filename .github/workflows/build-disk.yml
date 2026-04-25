@@ -98,6 +98,17 @@ jobs:
           compression-level: 0
           overwrite: true
       
+      - name: Upload to GitHub Release
+        if: github.event_name != 'pull_request'
+        uses: softprops/action-gh-release@2
+        with:
+          files: |
+            ${{ steps.build.outputs.output-directory }}/*
+          name: "bootc-image-${{ env.DEFAULT_TAG }}-${{ github.sha }}"
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
       - name: Upload to S3
         if: inputs.upload-to-s3 == true && github.event_name != 'pull_request'
         shell: bash
