@@ -97,14 +97,20 @@ jobs:
           retention-days: 0
           compression-level: 0
           overwrite: true
-      
+
+      - name: Compress Disk Image for Drive
+        if: github.event_name != 'pull_request'
+        run: |
+          cd ${{ steps.build.outputs.output-directory }}
+          tar -czf ../${{ env.IMAGE_NAME }}-${{ matrix.disk-type }}.tar.gz *
+
       - name: Upload to Google Drive
         if: github.event_name != 'pull_request'
         uses: willo32/google-drive-upload-action@v1
         with:
           parent_folder_id: ${{ secrets.GDRIVE_FOLDER_ID }}
           credentials: ${{ secrets.GDRIVE_CREDENTIALS }}
-          target: ${{ steps.build.outputs.output-directory }}
+          target: ${{ env.IMAGE_NAME }}-${{ matrix.disk-type }}.tar.gz
       
       - name: Upload to S3
         if: inputs.upload-to-s3 == true && github.event_name != 'pull_request'
