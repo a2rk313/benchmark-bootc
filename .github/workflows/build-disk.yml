@@ -35,7 +35,6 @@ jobs:
     permissions:
       contents: write
       packages: read
-
     steps:
       - name: Prepare environment
         run: |
@@ -80,9 +79,15 @@ jobs:
         run: |
           PLATFORM="${{ inputs.platform || 'amd64' }}"
           OUT="${{ steps.build.outputs.output-directory }}"
+
+          # Flatten: move all files from subdirectories up to OUT
+          find "$OUT" -mindepth 2 -type f -exec mv {} "$OUT/" \;
+          # Remove the now-empty subdirectories
+          find "$OUT" -mindepth 1 -type d -exec rm -rf {} + 2>/dev/null || true
+
           cd "$OUT"
 
-          # Rename files to include platform in the name
+          # Rename files to include platform and type in the name
           for f in *.iso; do
             [ -f "$f" ] && mv "$f" "thesis-${PLATFORM}-${{ matrix.disk-type }}.iso"
           done
@@ -90,9 +95,8 @@ jobs:
             [ -f "$f" ] && mv "$f" "thesis-${PLATFORM}-${{ matrix.disk-type }}.qcow2"
           done
 
-          # Checksum only the actual image files (not directories)
-          # Exclude directories like 'bootiso' from checksum
-          find . -maxdepth 1 -type f \( -name "*.iso" -o -name "*.qcow2" \) -exec sha256sum {} + > SHA256SUMS
+          # Checksum all files before splitting
+          sha256sum $(find . -maxdepth 1 -type f ! -name SHA256SUMS) > SHA256SUMS
 
           # Split ISOs into <1900MB chunks (GitHub Release limit is 2GB per file)
           for iso in thesis-*.iso; do
@@ -128,7 +132,6 @@ jobs:
         with:
           body: |
             ## Thesis disk images — ${{ github.ref_name }}
-
             **Platform:** ${{ inputs.platform || 'amd64' }}
             **Type:** ${{ matrix.disk-type }}
 
