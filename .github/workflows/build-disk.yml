@@ -98,19 +98,24 @@ jobs:
           compression-level: 0
           overwrite: true
 
-      - name: Compress Disk Image for Drive
-        if: github.event_name != 'pull_request'
-        run: |
-          cd ${{ steps.build.outputs.output-directory }}
-          tar -czf ../${{ env.IMAGE_NAME }}-${{ matrix.disk-type }}.tar.gz *
-
       - name: Upload to Google Drive
         if: github.event_name != 'pull_request'
-        uses: willo32/google-drive-upload-action@v1
-        with:
-          parent_folder_id: ${{ secrets.GDRIVE_FOLDER_ID }}
-          credentials: ${{ secrets.GDRIVE_CREDENTIALS }}
-          target: ${{ env.IMAGE_NAME }}-${{ matrix.disk-type }}.tar.gz
+        shell: bash
+        env:
+          SOURCE_DIR: ${{ steps.build.outputs.output-directory }}
+          PARENT_ID: ${{ secrets.GDRIVE_FOLDER_ID }}
+        run: |
+          # Install rclone
+          sudo apt-get update && sudo apt-get install -y rclone
+          
+          # Decode credentials to temp file
+          echo "${{ secrets.GDRIVE_CREDENTIALS }}" | base64 -d > /tmp/service_account.json
+          
+          # Configure rclone remote for Google Drive
+          rclone config create gdrive drive service_account_json /tmp/service_account.json root_folder_id=$PARENT_ID 2>/dev/null || true
+          
+          # Upload directory to GDrive
+          rclone copy "$SOURCE_DIR" gdrive:/ -v --stats-one-line-height 60
       
       - name: Upload to S3
         if: inputs.upload-to-s3 == true && github.event_name != 'pull_request'
