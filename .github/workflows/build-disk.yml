@@ -90,8 +90,8 @@ jobs:
             [ -f "$f" ] && mv "$f" "thesis-${PLATFORM}-${{ matrix.disk-type }}.qcow2"
           done
 
-          # Checksum everything before splitting
-          sha256sum * > SHA256SUMS
+          # Checksum only the actual image files (not directories)
+          sha256sum thesis-*.iso thesis-*.qcow2 > SHA256SUMS
 
           # Split ISOs into <1900MB chunks (GitHub Release limit is 2GB per file)
           for iso in thesis-*.iso; do
