@@ -110,6 +110,14 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       
+      - name: Upload to Google Drive
+        if: github.event_name != 'pull_request'
+        uses: willo32/google-drive-upload-action@v1
+        with:
+          parent_folder_id: ${{ secrets.GDRIVE_FOLDER_ID }}
+          credentials: ${{ secrets.GDRIVE_CREDENTIALS }}
+          target: ${{ steps.build.outputs.output-directory }}/**/*
+      
       - name: Upload to S3
         if: inputs.upload-to-s3 == true && github.event_name != 'pull_request'
         shell: bash
