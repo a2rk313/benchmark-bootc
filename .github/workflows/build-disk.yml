@@ -109,18 +109,12 @@ jobs:
           # Install rclone
           sudo apt-get update -qq && sudo apt-get install -y -qq rclone
           
-          # Create rclone config file with GDrive remote
-          mkdir -p ~/.config/rclone
-          cat > ~/.config/rclone/rclone.conf << 'EOF'
-[gdrive]
-type = drive
-scope = drive
-root_folder_id = $GDRIVE_FOLDER_ID
-service_account_file = /tmp/service_account.json
-EOF
-          
-          # Write service account JSON
+          # Write service account JSON first
           echo "$GDRIVE_CREDS" | base64 -d > /tmp/service_account.json
+          
+          # Create rclone config file
+          mkdir -p ~/.config/rclone
+          printf '[gdrive]\ntype = drive\nscope = drive\nroot_folder_id = %s\nservice_account_file = /tmp/service_account.json\n' "$GDRIVE_FOLDER_ID" > ~/.config/rclone/rclone.conf
           
           # Upload files to GDrive
           rclone copy "$SOURCE_DIR" gdrive:/ --verbose --stats-one-line
