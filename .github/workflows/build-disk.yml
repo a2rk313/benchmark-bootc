@@ -5,12 +5,11 @@ on:
   workflow_dispatch:
     inputs:
       platform:
-        required: false
+        required: true
         type: choice
         options:
           - amd64
           - arm64
-        default: amd64
   push:
     tags:
       - "thesis-*"
@@ -20,7 +19,6 @@ env:
   IMAGE_REGISTRY: "ghcr.io/${{ github.repository_owner }}"
   DEFAULT_TAG: "latest"
   BIB_IMAGE: "quay.io/centos-bootc/bootc-image-builder:latest"
-  PLATFORM: ${{ github.event.inputs.platform || 'amd64' }}
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref || github.run_id }}
@@ -29,17 +27,14 @@ concurrency:
 jobs:
   build:
     name: Build disk images
-    runs-on: ${{ fromJSON('{"amd64":"ubuntu-24.04","arm64":"ubuntu-24.04-arm"}[github.event.inputs.platform]') || 'ubuntu-24.04' }}
-
+    runs-on: ${{ (inputs.platform == 'arm64') && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
     strategy:
       fail-fast: false
       matrix:
         disk-type: ["qcow2", "anaconda-iso"]
-
     permissions:
       contents: write
       packages: read
-      id-token: write
 
     steps:
       - name: Prepare environment
@@ -48,25 +43,25 @@ jobs:
           USER_GID=$(id -g)
           DISK_TYPE=$(echo "${{ matrix.disk-type }}" | tr ' ' '-')
           echo "IMAGE_REGISTRY=${IMAGE_REGISTRY,,}" >> $GITHUB_ENV
-          echo "IMAGE_NAME=${IMAGE_NAME,,}" >> $GITHUB_ENV
-          echo "DISK_TYPE=${DISK_TYPE}" >> $GITHUB_ENV
-          echo "USER_UID=${USER_UID}" >> $GITHUB_ENV
-          echo "USER_GID=${USER_GID}" >> $GITHUB_ENV
+          echo "IMAGE_NAME=${IMAGE_NAME,,}"         >> $GITHUB_ENV
+          echo "DISK_TYPE=${DISK_TYPE}"             >> $GITHUB_ENV
+          echo "USER_UID=${USER_UID}"               >> $GITHUB_ENV
+          echo "USER_GID=${USER_GID}"               >> $GITHUB_ENV
 
       - name: Install dependencies (arm64)
-        if: github.event.inputs.platform == 'arm64'
+        if: (inputs.platform || 'amd64') == 'arm64'
         run: |
           sudo apt update -y
           sudo apt install -y podman
 
       - name: Maximize build space
-        if: github.event.inputs.platform != 'arm64'
+        if: (inputs.platform || 'amd64') != 'arm64'
         uses: ublue-os/remove-unwanted-software@cc0becac701cf642c8f0a6613bbdaf5dc36b259e # v9
         with:
           remove-codeql: true
 
       - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
 
       - name: Build disk images
         id: build
@@ -83,61 +78,79 @@ jobs:
         if: github.event_name != 'pull_request'
         shell: bash
         run: |
-          cd "${{ steps.build.outputs.output-directory }}"
-          PLATFORM="${{ github.event.inputs.platform || 'amd64' }}"
+          PLATFORM="${{ inputs.platform || 'amd64' }}"
+          OUT="${{ steps.build.outputs.output-directory }}"
+          cd "$OUT"
 
-          # Rename files for cleaner output
+          # Rename files to include platform in the name
           for f in *.iso; do
-            if [ -f "$f" ]; then
-              mv "$f" "thesis-${PLATFORM}.iso"
-            fi
+            [ -f "$f" ] && mv "$f" "thesis-${PLATFORM}-${{ matrix.disk-type }}.iso"
           done
           for f in *.qcow2; do
-            if [ -f "$f" ]; then
-              mv "$f" "thesis-${PLATFORM}.qcow2"
-            fi
+            [ -f "$f" ] && mv "$f" "thesis-${PLATFORM}-${{ matrix.disk-type }}.qcow2"
           done
 
-          # Generate checksum
+          # Checksum everything before splitting
           sha256sum * > SHA256SUMS
 
-          # Split only ISO files (GitHub has 2GB limit)
+          # Split ISOs into <1900MB chunks (GitHub Release limit is 2GB per file)
           for iso in thesis-*.iso; do
             if [ -f "$iso" ]; then
-              echo "Splitting $iso"
-              split -b 1900M "$iso" "$iso.part-"
+              echo "Splitting $iso..."
+              split -b 1900M "$iso" "${iso}.part-"
               rm "$iso"
+              echo "Parts created:"
+              ls -lh "${iso}.part-"*
             fi
           done
 
-          # Add instructions for reassembly
-          cat <<EOF > README.txt
-          Reassemble the ISO:
-
+          # Reassembly instructions for reviewers
+          cat <<'EOF' > README.txt
+          Reassemble the ISO
+          ------------------
           cat thesis-*.iso.part-* > thesis.iso
 
-          Verify integrity:
-
+          Verify integrity
+          ----------------
           sha256sum -c SHA256SUMS
+
+          Note: the SHA256SUMS file contains the checksum of the original
+          pre-split ISO, so run it against the reassembled file.
           EOF
+
+          echo "--- Final asset list ---"
+          ls -lh
 
       - name: Upload to GitHub Release
         if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
+          body: |
+            ## Thesis disk images — ${{ github.ref_name }}
+
+            **Platform:** ${{ inputs.platform || 'amd64' }}
+            **Type:** ${{ matrix.disk-type }}
+
+            ### Reassemble the ISO
+            ```bash
+            cat thesis-*.iso.part-* > thesis.iso
+            sha256sum -c SHA256SUMS
+            ```
           files: |
             ${{ steps.build.outputs.output-directory }}/thesis-*.iso.part-*
+            ${{ steps.build.outputs.output-directory }}/thesis-*.qcow2
             ${{ steps.build.outputs.output-directory }}/SHA256SUMS
             ${{ steps.build.outputs.output-directory }}/README.txt
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload disk images to Job Artifacts
+      - name: Upload to Job Artifacts
         if: github.event_name != 'pull_request'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@v4
         with:
+          name: disk-image-${{ matrix.disk-type }}-${{ inputs.platform || 'amd64' }}
           path: ${{ steps.build.outputs.output-directory }}
           if-no-files-found: error
-          retention-days: 0
+          retention-days: 7
           compression-level: 0
           overwrite: true
