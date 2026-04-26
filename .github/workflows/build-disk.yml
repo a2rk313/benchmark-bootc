@@ -10,9 +10,11 @@ on:
         options:
           - amd64
           - arm64
-  push:
-    tags:
-      - "thesis-*"
+      upload-release:
+        description: "Upload to GitHub Release"
+        required: false
+        default: false
+        type: boolean
 
 env:
   IMAGE_NAME: ${{ github.event.repository.name }}
@@ -127,11 +129,12 @@ jobs:
           ls -lh
 
       - name: Upload to GitHub Release
-        if: startsWith(github.ref, 'refs/tags/')
+        if: inputs.upload-release == true
         uses: softprops/action-gh-release@v2
         with:
           body: |
-            ## Thesis disk images — ${{ github.ref_name }}
+            ## Thesis disk images
+
             **Platform:** ${{ inputs.platform || 'amd64' }}
             **Type:** ${{ matrix.disk-type }}
 
