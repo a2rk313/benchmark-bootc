@@ -29,7 +29,7 @@ concurrency:
 jobs:
   build:
     name: Build disk images
-    runs-on: ${{ env.PLATFORM == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
+    runs-on: ${{ fromJSON('{"amd64":"ubuntu-24.04","arm64":"ubuntu-24.04-arm"}[github.event.inputs.platform]') || 'ubuntu-24.04' }}
 
     strategy:
       fail-fast: false
@@ -54,13 +54,13 @@ jobs:
           echo "USER_GID=${USER_GID}" >> $GITHUB_ENV
 
       - name: Install dependencies (arm64)
-        if: env.PLATFORM == 'arm64'
+        if: github.event.inputs.platform == 'arm64'
         run: |
           sudo apt update -y
           sudo apt install -y podman
 
       - name: Maximize build space
-        if: env.PLATFORM != 'arm64'
+        if: github.event.inputs.platform != 'arm64'
         uses: ublue-os/remove-unwanted-software@cc0becac701cf642c8f0a6613bbdaf5dc36b259e # v9
         with:
           remove-codeql: true
@@ -84,7 +84,7 @@ jobs:
         shell: bash
         run: |
           cd "${{ steps.build.outputs.output-directory }}"
-          PLATFORM="${{ env.PLATFORM }}"
+          PLATFORM="${{ github.event.inputs.platform || 'amd64' }}"
 
           # Rename files for cleaner output
           for f in *.iso; do
