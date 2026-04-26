@@ -98,7 +98,7 @@ jobs:
           compression-level: 0
           overwrite: true
       
-- name: Upload to Google Drive
+      - name: Upload to Google Drive
         if: github.event_name != 'pull_request'
         uses: willo32/google-drive-upload-action@v1
         with:
