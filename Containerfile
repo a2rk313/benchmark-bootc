@@ -11,14 +11,12 @@
 FROM registry.fedoraproject.org/fedora:43 AS builder
 
 # 1. LLVM MULTIVERSIONING TARGET
-# Instructs Julia to compile a fat binary that supports baseline x86-64,
-# SandyBridge (AVX), and Haswell (AVX2). This prevents hardware-mismatch
+# Instructs Julia to compile a fat binary that supports baseline x86-64, 
+# SandyBridge (AVX), and Haswell (AVX2). This prevents hardware-mismatch 
 # cache invalidation across disparate deployment targets.
 ENV JULIA_CPU_TARGET="generic;sandybridge,-xsaveopt,clone_all;haswell,-rdrnd,base(1)"
 
-# 2. DEPENDENCY GRAPH FREEZE
-# Prevents Julia from mutating the registry and invalidating the cache on boot.
-ENV JULIA_PKG_OFFLINE="true"
+# Note: JULIA_PKG_OFFLINE is intentionally omitted here so Pkg can resolve dependencies.
 
 # Install compilers and development headers
 RUN dnf5 install -y \
@@ -40,7 +38,7 @@ RUN curl -fsSL "https://julialang-s3.julialang.org/bin/linux/x64/1.12/julia-1.12
 ENV JULIA_DEPOT_PATH="/usr/share/julia/depot"
 ENV PATH="/usr/lib/julia/bin:$PATH"
 
-# 3. STRICT PRECOMPILATION
+# 2. STRICT PRECOMPILATION (WITH NETWORK ACCESS)
 # We enforce strict=true so the build fails if any package fails to compile,
 # ensuring no deferred JIT compilation leaks into the benchmark phase.
 RUN mkdir -p /usr/share/julia/depot && \
@@ -75,7 +73,7 @@ ENV JULIA_NUM_THREADS=8 \
     NPY_BLAS_ORDER=openblas \
     NPY_LAPACK_ORDER=openblas
 
-# 4. IMMUTABLE BUILD PATH
+# 3. IMMUTABLE BUILD PATH
 # During build, we strictly write to the immutable tree. No /var paths here.
 ENV JULIA_DEPOT_PATH="/usr/share/julia/depot" \
     PATH="/usr/lib/julia/bin:/usr/bin:/bin:/usr/sbin:/sbin"
@@ -97,12 +95,12 @@ COPY --from=builder /opt/R-deps /usr/lib64/R/library
 COPY --from=builder /usr/lib/julia /usr/lib/julia
 COPY --from=builder /usr/share/julia/depot /usr/share/julia/depot
 
-# 5. DYNAMIC /VAR PROVISIONING (bootc fix)
-# Tells systemd to create the writable layer at boot time, bypassing the
+# 4. DYNAMIC /VAR PROVISIONING (bootc fix)
+# Tells systemd to create the writable layer at boot time, bypassing the 
 # ephemeral nature of /var during OCI image building.
 RUN echo "d /var/lib/julia 0755 root root -" > /usr/lib/tmpfiles.d/julia-depot.conf
 
-# 6. CACHE PERMISSION LOCKDOWN
+# 5. CACHE PERMISSION LOCKDOWN
 # Ensure deep traversal permissions so the runtime user can read the .ji files.
 RUN chmod -R a+rX /usr/share/julia/depot
 
@@ -113,8 +111,8 @@ RUN julia --threads=1 -e 'using Pkg; Pkg.precompile(strict=true)' && \
 RUN ln -s /usr/lib/julia/bin/julia /usr/bin/julia && \
     touch /etc/benchmark-bootc-release
 
-# 7. RUNTIME ENVIRONMENT INJECTION
-# This script injects the split-depot and cache protections only when the user logs in.
+# 6. RUNTIME ENVIRONMENT INJECTION & CACHE FREEZE
+# This script injects the split-depot and offline cache protections only when the user logs in.
 RUN echo '# Benchmark Environment Initialization' > /etc/profile.d/benchmark.sh && \
     echo 'export JULIA_DEPOT_PATH="/var/lib/julia:/usr/share/julia/depot"' >> /etc/profile.d/benchmark.sh && \
     echo 'export JULIA_PKG_OFFLINE="true"' >> /etc/profile.d/benchmark.sh && \
