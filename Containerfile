@@ -11,8 +11,8 @@
 FROM registry.fedoraproject.org/fedora:43 AS builder
 
 # 1. LLVM MULTIVERSIONING TARGET
-# Instructs Julia to compile a fat binary that supports baseline x86-64, 
-# SandyBridge (AVX), and Haswell (AVX2). This prevents hardware-mismatch 
+# Instructs Julia to compile a fat binary that supports baseline x86-64,
+# SandyBridge (AVX), and Haswell (AVX2). This prevents hardware-mismatch
 # cache invalidation across disparate deployment targets.
 ENV JULIA_CPU_TARGET="generic;sandybridge,-xsaveopt,clone_all;haswell,-rdrnd,base(1)"
 
@@ -38,12 +38,13 @@ RUN curl -fsSL "https://julialang-s3.julialang.org/bin/linux/x64/1.12/julia-1.12
 ENV JULIA_DEPOT_PATH="/usr/share/julia/depot"
 ENV PATH="/usr/lib/julia/bin:$PATH"
 
-# 2. STRICT PRECOMPILATION (WITH NETWORK ACCESS)
-# We enforce strict=true so the build fails if any package fails to compile,
-# ensuring no deferred JIT compilation leaks into the benchmark phase.
+# 2. STRICT PRECOMPILATION & ARTIFACT HYDRATION
+# We enforce strict=true and explicitly instantiate to force the download of
+# all lazy JLL artifacts (like GDAL/PROJ binaries) into the immutable payload.
 RUN mkdir -p /usr/share/julia/depot && \
     julia -e 'using Pkg; Pkg.add(["BenchmarkTools", "CSV", "DataFrames", "SHA", "MAT", "JSON3", "NearestNeighbors", "LibGEOS", "Shapefile", "ArchGDAL", "GeoDataFrames"])' && \
-    julia -e 'using ArchGDAL, GeoDataFrames, LibGEOS, DataFrames; println("✓ Heavy GIS packages loaded")' && \
+    julia -e 'using Pkg; Pkg.instantiate()' && \
+    julia -e 'using ArchGDAL, GeoDataFrames, LibGEOS, DataFrames, MAT, NearestNeighbors, Shapefile, JSON3, SHA, BenchmarkTools, CSV; println("✓ All packages and JLL artifacts verified")' && \
     julia -e 'using Pkg; Pkg.precompile(strict=true)'
 
 # Build R dependencies
@@ -78,7 +79,7 @@ ENV JULIA_NUM_THREADS=8 \
 ENV JULIA_DEPOT_PATH="/usr/share/julia/depot" \
     PATH="/usr/lib/julia/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 
-# Install native runtime dependencies
+# Install native runtime dependencies and purge ephemeral cruft
 RUN dnf5 install -y --skip-unavailable --setopt=install_weak_deps=False \
     python3 python3-numpy python3-scipy python3-pandas python3-matplotlib python3-seaborn \
     python3-scikit-learn python3-shapely python3-pyproj python3-fiona python3-rasterio \
@@ -88,15 +89,17 @@ RUN dnf5 install -y --skip-unavailable --setopt=install_weak_deps=False \
     time hyperfine git \
     grub2-common grub2-efi-x64 shim-x64 efibootmgr \
     numactl kernel-tools flexiblas && \
-    dnf5 clean all
+    dnf5 clean all && \
+    rm -rf /var/cache/* /var/log/dnf* /var/lib/dnf /run/dnf /tmp/*
 
 # Copy built artifacts from the builder stage
+# (This recursively copies the precompiled .ji files AND the downloaded JLL artifacts)
 COPY --from=builder /opt/R-deps /usr/lib64/R/library
 COPY --from=builder /usr/lib/julia /usr/lib/julia
 COPY --from=builder /usr/share/julia/depot /usr/share/julia/depot
 
 # 4. DYNAMIC /VAR PROVISIONING (bootc fix)
-# Tells systemd to create the writable layer at boot time, bypassing the 
+# Tells systemd to create the writable layer at boot time, bypassing the
 # ephemeral nature of /var during OCI image building.
 RUN echo "d /var/lib/julia 0755 root root -" > /usr/lib/tmpfiles.d/julia-depot.conf
 
@@ -130,7 +133,7 @@ RUN echo '# Benchmark Environment Initialization' > /etc/profile.d/benchmark.sh 
 # /etc/environment is read by PAM for ALL sessions, ensuring JULIA_DEPOT_PATH
 # is available regardless of how Julia is invoked.
 RUN echo 'JULIA_DEPOT_PATH=/var/lib/julia:/usr/share/julia/depot' >> /etc/environment && \
-    echo 'JULIA_PKG_OFFLINE=true' >> /etc/environment
+    echo 'JULIA_PKG_OFFLINE=true' >> /etc/environment && \
     echo 'JULIA_PROJECT=/usr/share/julia/depot/environments/v1.12' >> /etc/environment
 
 # Run the bootc linter to avoid encountering certain bugs and maintain content quality.
