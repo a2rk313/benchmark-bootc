@@ -126,5 +126,11 @@ RUN echo '# Benchmark Environment Initialization' > /etc/profile.d/benchmark.sh 
     echo 'export PYTHONDONTWRITEBYTECODE=1' >> /etc/profile.d/benchmark.sh && \
     echo 'export GDAL_DISABLE_READDIR_ON_OPEN=EMPTY_DIR' >> /etc/profile.d/benchmark.sh
 
+# 8. GLOBAL ENVIRONMENT (non-login shells, scripts, systemd services)
+# /etc/environment is read by PAM for ALL sessions, ensuring JULIA_DEPOT_PATH
+# is available regardless of how Julia is invoked.
+RUN echo 'JULIA_DEPOT_PATH=/var/lib/julia:/usr/share/julia/depot' >> /etc/environment && \
+    echo 'JULIA_PKG_OFFLINE=true' >> /etc/environment
+
 # Run the bootc linter to avoid encountering certain bugs and maintain content quality.
 RUN bootc container lint
