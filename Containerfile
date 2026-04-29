@@ -131,6 +131,7 @@ RUN echo '# Benchmark Environment Initialization' > /etc/profile.d/benchmark.sh 
 # is available regardless of how Julia is invoked.
 RUN echo 'JULIA_DEPOT_PATH=/var/lib/julia:/usr/share/julia/depot' >> /etc/environment && \
     echo 'JULIA_PKG_OFFLINE=true' >> /etc/environment
+    echo 'JULIA_PROJECT=/usr/share/julia/depot/environments/v1.12' >> /etc/environment
 
 # Run the bootc linter to avoid encountering certain bugs and maintain content quality.
 RUN bootc container lint
